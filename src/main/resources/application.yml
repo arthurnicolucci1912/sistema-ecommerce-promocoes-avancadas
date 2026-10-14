@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: ecommerce
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+
+app:
+  jwt:
+    # Sem valor padrao: fora do perfil dev a aplicacao nao sobe sem APP_JWT_SECRET.
+    # O default vazio faz a validacao (@NotBlank) falhar, em vez de manter o texto "${APP_JWT_SECRET}".
+    segredo: ${APP_JWT_SECRET:}
+    expiracao: 60m
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never

@@ -1,0 +1,4 @@
+# Perfil "test": usado pelos testes (@ActiveProfiles("test")). O banco vem do Testcontainers.
+app:
+  jwt:
+    segredo: segredo-jwt-de-teste-0123456789-abcdefghij

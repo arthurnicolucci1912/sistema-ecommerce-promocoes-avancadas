@@ -1,0 +1,21 @@
+# Banco de dados para desenvolvimento local. Credenciais ficticias, nao usar em producao.
+services:
+  postgres:
+    image: postgres:17
+    container_name: ecommerce-postgres
+    environment:
+      POSTGRES_DB: ecommerce
+      POSTGRES_USER: ecommerce
+      POSTGRES_PASSWORD: ecommerce
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - ecommerce-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecommerce -d ecommerce"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  ecommerce-pgdata:

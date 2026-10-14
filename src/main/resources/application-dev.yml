@@ -1,0 +1,13 @@
+# Perfil de desenvolvimento: aponta para o PostgreSQL do docker-compose.yml.
+spring:
+  datasource:
+    # DB_URL/DB_USER/DB_PASSWORD sobrescrevem os padroes (ex.: quando a porta 5432 do host esta ocupada).
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/ecommerce}
+    username: ${DB_USER:ecommerce}
+    password: ${DB_PASSWORD:ecommerce}
+
+app:
+  jwt:
+    # INSEGURO: segredo fixo e publico, valido apenas para desenvolvimento local (minimo de 32 bytes).
+    # Nunca usar fora do perfil dev; em outros ambientes definir APP_JWT_SECRET.
+    segredo: segredo-jwt-de-desenvolvimento-inseguro-0123456789
