@@ -1,32 +1,43 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  Projeto acadêmico (FATEC): "Sistema de E-commerce com Promoções Avançadas", enunciado em
+  "Sistema de E-commerce.pdf". Stack: Java 21, Spring Boot, Spring Data JPA, Spring Security (JWT),
+  PostgreSQL + Flyway, OpenAPI/Swagger, JUnit + Testcontainers + ArchUnit. Pacote raiz
+  br.com.fatec.ecommerce, módulos em camadas web/aplicacao/dominio/infra (docs/03-arquitetura.md).
+  Documentação viva em docs/ (requisitos, domínio, arquitetura, patterns, regras, roadmap, testes).
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+  DESIGN PATTERNS (obrigatório, critério central de avaliação do enunciado):
+  - O projeto deve usar pelo menos 6 Design Patterns, de mais de uma categoria, com no mínimo
+    2 comportamentais e 1 de criação.
+  - Patterns previstos (docs/04-design-patterns.md): Strategy (tipos de promoção, política de
+    conflito), Composite (condições de elegibilidade, categorias e combos), Chain of Responsibility
+    (pipeline de formação do preço), State (ciclo de vida do pedido), Adapter (gateways de pagamento
+    e provedores de frete), Observer (eventos de domínio e notificações), Factory Method (criação de
+    promoções a partir da configuração) e Facade (checkout).
+  - Todo pattern deve nascer de um problema concreto do enunciado (comportamento variável, regras
+    combináveis, processo complexo, integração externa, criação de objetos diferentes ou
+    acoplamento). Classes criadas só para casar com o nome de um pattern são proibidas.
+  - Para cada pattern aplicado, registrar: problema que existia, por que este pattern foi escolhido,
+    classes participantes e o que ficou mais simples de modificar depois.
+  - Commits nunca são feitos automaticamente; o autor revisa e commita.
 
-# Per-operation guidance (optional)
-# Add advisory guidance for how apply and archive work should be conducted.
-# This is separate from artifact rules above.
-# Example:
-#   operations:
-#     apply:
-#       guidance:
-#         - Keep test summaries concise
-#     archive:
-#       guidance:
-#         - Summarize the archive outcome before finishing
+rules:
+  proposal:
+    - Incluir a seção "Design Patterns" listando os patterns do enunciado que esta change aplica ou prepara, o ponto de variação e o requisito do PDF que os justifica. Se a change não tiver ponto de variação real, declarar isso explicitamente.
+  specs:
+    - Para cada ponto de variação coberto pela change (nova promoção, condição, política de conflito, forma de pagamento, transportadora, canal de notificação, estado do pedido), incluir um requisito de extensibilidade observável com cenário, por exemplo "uma nova promoção registrada passa a ser considerada no cálculo sem alterar as promoções existentes".
+    - Não citar nomes de classes nem de patterns nos requisitos; o pattern fica no design. A spec descreve o comportamento que o pattern garante.
+  design:
+    - Incluir obrigatoriamente uma decisão "Design Patterns" com tabela pattern x papel x problema do enunciado x classes participantes x o que fica mais fácil de modificar, alinhada a docs/04-design-patterns.md.
+    - Para cada pattern, registrar a alternativa descartada (por exemplo, cadeia de if/else ou switch) e por que ela foi rejeitada.
+    - Marcar explicitamente as partes da change que não usam pattern próprio, para evitar patterns artificiais.
+  tasks:
+    - Incluir tarefas para implementar cada pattern previsto no design, com teste que demonstre a extensibilidade (por exemplo, registrar uma implementação de teste nova sem alterar as existentes).
+    - Incluir tarefa de atualizar docs/04-design-patterns.md (classes participantes reais, status implementado) e o Javadoc das classes participantes com o pattern e o papel de cada uma.
+
+operations:
+  apply:
+    guidance:
+      - Ao implementar um pattern, conferir que as classes participantes correspondem ao design e a docs/04-design-patterns.md; se divergirem, atualizar o documento na mesma change.
+      - Não fazer git add nem commit; ao fim de cada grupo de tarefas, parar para revisão do autor.

@@ -19,6 +19,12 @@ Toda delegação deve conter:
 
 O subagente devolve um resumo curto do que foi feito — sem despejar código ou logs longos no contexto principal.
 
+## Design Patterns (obrigatório)
+- Todo artefato de especificação (proposal, specs, design, tasks do OpenSpec e docs/) deve seguir os Design Patterns citados no enunciado `Sistema de E-commerce.pdf`: pelo menos 6 patterns, de mais de uma categoria, com no mínimo 2 comportamentais e 1 de criação.
+- Catálogo e justificativas em `docs/04-design-patterns.md`; as regras por artefato estão em `openspec/config.yaml`.
+- Cada pattern deve resolver um problema real do enunciado e ter documentados problema, motivo da escolha, classes participantes e o que ficou mais fácil de modificar. Patterns artificiais são proibidos.
+- Toda delegação de código a um subagente deve citar os patterns que a tarefa implementa e as classes participantes esperadas.
+
 ## Regras de uso
 - Planejamento, decisões de arquitetura e revisão final ficam com o orquestrador.
 - Se a tarefa for pequena demais para justificar um subagente, o orquestrador faz direto.
