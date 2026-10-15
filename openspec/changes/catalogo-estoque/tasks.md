@@ -8,13 +8,13 @@
 
 ## 2. Catálogo: domínio e Composite
 
-- [ ] 2.1 Implementar `Categoria`, com a regra de ciclo e de nome único por pai, e um serviço de árvore que calcula ancestrais e descendentes (D2). Verificar: testes unitários de ciclo (mover para si e para uma descendente), de ancestrais e de descendentes.
-- [ ] 2.2 Implementar o Composite (D1): `ItemVendavel` (componente), `VariacaoProduto` (folha, com atributos nome/valor), `Combo` e `ItemCombo` (composto), mais `Produto`, com Javadoc de pattern e papel e link para `docs/04-design-patterns.md` §3.8. Verificar com testes unitários:
+- [x] 2.1 Implementar `Categoria`, com a regra de ciclo e de nome único por pai, e um serviço de árvore que calcula ancestrais e descendentes (D2). Verificar: testes unitários de ciclo (mover para si e para uma descendente), de ancestrais e de descendentes.
+- [x] 2.2 Implementar o Composite (D1): `ItemVendavel` (componente), `VariacaoProduto` (folha, com atributos nome/valor), `Combo` e `ItemCombo` (composto), mais `Produto`, com Javadoc de pattern e papel e link para `docs/04-design-patterns.md` §3.8. Verificar com testes unitários:
   - os componentes de estoque da variação e do combo, inclusive combo dentro de combo, com a multiplicação e a agregação de variações repetidas;
   - a disponibilidade para venda com componente inativo;
   - a rejeição de combo circular;
   - **extensibilidade:** uma subclasse de teste nova de `ItemVendavel` é tratada por um combo e pelo cálculo de componentes sem nenhuma alteração nas classes existentes.
-- [ ] 2.3 Publicar `VariacaoCadastrada` ao cadastrar uma variação (Observer, publicador). Verificar: teste de que o evento é publicado com o id da variação.
+- [x] 2.3 Publicar `VariacaoCadastrada` ao cadastrar uma variação (Observer, publicador). Verificar: teste de que o evento é publicado com o id da variação.
 
 ## 3. Estoque: domínio, concorrência e Observer
 
