@@ -4,7 +4,7 @@
 
 ## 1. Persistência
 
-- [ ] 1.1 Criar a migração Flyway `V3` com as tabelas de D1 a D4: unicidade global de SKU em `item_vendavel`, nome de categoria único por pai, `CHECK` de preço maior que zero, `CHECK` de disponível e reservado não negativos, situação da reserva e unicidade `(pedido_id, variacao_id)`. Verificar: `MigracaoV3Tests` confirma as tabelas e as restrições, e `ddl-auto=validate` passa.
+- [x] 1.1 Criar a migração Flyway `V3` com as tabelas de D1 a D4: unicidade global de SKU em `item_vendavel`, nome de categoria único por pai, `CHECK` de preço maior que zero, `CHECK` de disponível e reservado não negativos, situação da reserva e unicidade `(pedido_id, variacao_id)`. Verificar: `MigracaoV3Tests` confirma as tabelas e as restrições, e `ddl-auto=validate` passa.
 
 ## 2. Catálogo: domínio e Composite
 

@@ -28,6 +28,15 @@ public class UsuariosParaTeste {
     }
 
     public void limpar() {
+        jdbc.update("DELETE FROM reserva_estoque");
+        jdbc.update("DELETE FROM saldo_estoque");
+        jdbc.update("DELETE FROM combo_item");
+        jdbc.update("DELETE FROM combo");
+        jdbc.update("DELETE FROM variacao_atributo");
+        jdbc.update("DELETE FROM variacao_produto");
+        jdbc.update("DELETE FROM item_vendavel");
+        jdbc.update("DELETE FROM produto");
+        jdbc.update("DELETE FROM categoria");
         jdbc.update("DELETE FROM pedido_historico");
         jdbc.update("DELETE FROM pedido_desconto");
         jdbc.update("DELETE FROM pedido_item");
