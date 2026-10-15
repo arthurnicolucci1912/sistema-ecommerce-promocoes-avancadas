@@ -2,15 +2,15 @@
 
 > **Objetivo:** descrever as entidades do domínio, seus relacionamentos e as decisões de modelagem sobre variações de produto, categorias hierárquicas, combos/kits e preservação do histórico comercial nos pedidos.
 > **Etapas do roadmap relacionadas:** E2 a E8 (cada etapa refina as entidades que introduz). Ver [08-roadmap.md](08-roadmap.md).
-> **Status:** rascunho (diagrama preliminar; decisões marcadas como `proposto` podem mudar na etapa que implementa a entidade).
+> **Status:** parcialmente `implementado`: `Usuario`, `Cliente` e `Endereco` (E1) refletem o código e a migração `V1` (seção 1.1), e o agregado do pedido (E4, change `pedido-ciclo-vida`) reflete o código e a migração `V2` (seção 1.2). O restante é rascunho (diagrama preliminar; decisões marcadas como `proposto` podem mudar na etapa que implementa a entidade).
 
 ## 1. Entidades e responsabilidades
 
 | Entidade | Responsabilidade | Etapa |
 |---|---|---|
-| Usuario | Credencial de acesso (e-mail, hash da senha) e perfil (cliente, administrador e perfis administrativos opcionais). | E1 |
-| Cliente | Dados cadastrais do comprador. Um usuário com perfil cliente possui um cliente. | E1 |
-| Endereco | Endereço de entrega do cliente. Um cliente tem um ou mais. | E1 |
+| Usuario | Credencial de acesso (e-mail, hash da senha, situação ativo/inativo) e um ou mais perfis (`CLIENTE`, `ADMIN`, `OPERADOR_COMERCIAL`, `ESTOQUE`, `PROMOCOES`). Pertence ao módulo `seguranca`. | E1 (`implementado`) |
+| Cliente | Dados cadastrais do comprador. Um usuário com perfil cliente possui um cliente; o cliente guarda `usuarioId`. | E1 (`implementado`) |
+| Endereco | Endereço de entrega do cliente. Um cliente tem um ou mais; apenas um é o principal. | E1 (`implementado`) |
 | Categoria | Nó da árvore de categorias (categoria pai opcional). | E2 |
 | Produto | Item do catálogo, com dados comuns: nome, descrição, marca e categoria. | E2 |
 | VariacaoProduto | Variação vendável de um produto (SKU), com preço próprio e atributos como tamanho, cor ou capacidade. É a unidade que entra no carrinho e no estoque. | E2 |
@@ -19,18 +19,89 @@
 | ReservaEstoque | Reserva de unidades vinculada a um pedido, com situação (ativa, convertida em baixa, liberada, expirada). | E4 |
 | Carrinho | Itens e quantidades de um cliente, mais cupom aplicado e valores calculados. Não reserva estoque. | E3 |
 | ItemCarrinho | Variação e quantidade dentro de um carrinho. | E3 |
-| Pedido | Resultado do checkout. Guarda o estado do ciclo de vida e os valores comerciais da compra. | E4 |
-| ItemPedido | Linha do pedido com cópia dos dados comerciais no momento da compra (snapshot). | E4 |
-| HistoricoPedido | Registro de cada mudança de estado, incluindo cancelamentos (data, origem, motivo). | E4 |
+| Pedido | Resultado do checkout. Guarda a situação do ciclo de vida, os valores comerciais da compra e o endereço de entrega copiado. Agregado raiz (ver 1.2). | E4 (`implementado`) |
+| ItemPedido | Linha do pedido com cópia dos dados comerciais no momento da compra (snapshot). | E4 (`implementado`) |
+| DescontoPedido | Desconto concedido no pedido (promoção ou cupom), com descrição, origem, alvo (itens ou frete) e valor copiados. Substitui, no código, o rascunho `PromocaoAplicada`. | E4 (`implementado`) |
+| EntradaHistorico | Registro de cada mudança de situação, incluindo a criação e os cancelamentos (de, para, momento, responsável e motivo). Era o rascunho `HistoricoPedido`. | E4 (`implementado`) |
 | Promocao | Campanha com nome, vigência, prioridade, tipo, parâmetros, regra de acumulação e condições. | E5 |
 | CondicaoElegibilidade | Regra que decide se a promoção (ou cupom) se aplica. Pode ser composta (E, OU, NÃO). | E5 |
 | Cupom | Código promocional com validade, limite de usos, condições e benefício. | E5 |
-| PromocaoAplicada | Desconto efetivamente concedido em um pedido por uma promoção ou cupom (alimenta relatórios). | E5 |
+| PromocaoAplicada | Referência de uma promoção ou cupom efetivamente concedido, para relatórios por campanha (o valor copiado já fica em `DescontoPedido`). | E5 |
 | Pagamento | Pagamento de um pedido: forma, valor e situação. | E6 |
 | TransacaoPagamento | Evento recebido ou enviado ao gateway, com identificador externo único (base da idempotência). | E6 |
 | Entrega | Modalidade, custo, endereço de entrega copiado, situação e código de rastreio. | E7 |
 
-Os **valores monetários** usam `BigDecimal` (ou um tipo `Dinheiro` do módulo compartilhado), nunca `double`.
+Os **valores monetários** usam o tipo `Dinheiro` do módulo `compartilhado` (`implementado` na E1; internamente `BigDecimal`, arredondamento `HALF_EVEN`), nunca `double`.
+
+### 1.1 Entidades da E1 como implementadas (`implementado`)
+
+Tabelas criadas pela migração `V1__usuarios_clientes_enderecos.sql`; as classes JPA são `seguranca.dominio.Usuario`, `cliente.dominio.Cliente` e `cliente.dominio.Endereco`.
+
+**`usuario`** (módulo `seguranca`)
+
+| Campo | Tipo | Regras |
+|---|---|---|
+| `id` | `BIGINT` identidade | Chave primária. |
+| `email` | `VARCHAR(255)`, obrigatório | Normalizado (minúsculas, sem espaços nas pontas) antes de gravar. Único: `uk_usuario_email`. |
+| `senha_hash` | `VARCHAR(255)`, obrigatório | Hash gerado pelo `DelegatingPasswordEncoder`; a senha em claro nunca é gravada nem devolvida. |
+| `ativo` | `BOOLEAN`, padrão `true` | Usuário inativo não faz login. |
+| `criado_em`, `atualizado_em` | `TIMESTAMPTZ` | Preenchidos pela aplicação/banco. |
+
+**`usuario_perfil`**: tabela de coleção de perfis. Chave primária `(usuario_id, perfil)`; `usuario_id` referencia `usuario`; `perfil` é `TEXT` com `CHECK` restrito a `CLIENTE`, `ADMIN`, `OPERADOR_COMERCIAL`, `ESTOQUE`, `PROMOCOES` (enum `Perfil`). Todo perfil exceto `CLIENTE` é administrativo, e a API administrativa não atribui `CLIENTE`.
+
+**`cliente`**
+
+| Campo | Tipo | Regras |
+|---|---|---|
+| `id` | `BIGINT` identidade | Chave primária. |
+| `usuario_id` | `BIGINT`, obrigatório | Referencia `usuario`. Único: `uk_cliente_usuario` (um usuário, no máximo um cliente). Apenas o id, sem associação JPA entre `Cliente` e `Usuario` (dependência entre módulos por identificador). |
+| `nome` | `VARCHAR(255)`, obrigatório | Alterável pelo próprio cliente. |
+| `cpf` | `CHAR(11)`, obrigatório | Só dígitos, validado (dígitos verificadores; sequências repetidas rejeitadas). Único: `uk_cliente_cpf`. Não é alterável depois do cadastro. |
+| `telefone` | `VARCHAR(20)`, opcional | Alterável pelo próprio cliente. |
+
+O e-mail do cliente é o do seu `usuario` (não é duplicado em `cliente`) e também não é alterável por `PUT /api/clientes/me`.
+
+**`endereco`**
+
+| Campo | Tipo | Regras |
+|---|---|---|
+| `id` | `BIGINT` identidade | Chave primária. |
+| `cliente_id` | `BIGINT`, obrigatório | Referencia `cliente`; índice `ix_endereco_cliente`. Toda busca é feita por `(id, clienteId)`, então um endereço de outro cliente aparece como inexistente (404). |
+| `apelido` | `VARCHAR(60)`, opcional | |
+| `cep` | `CHAR(8)`, obrigatório | Normalizado para 8 dígitos (aceita hífen na entrada). |
+| `logradouro`, `numero`, `bairro`, `cidade` | obrigatórios | `complemento` é opcional. |
+| `uf` | `CHAR(2)`, obrigatório | Validada contra as 27 UFs. |
+| `principal` | `BOOLEAN`, padrão `false` | O primeiro endereço do cliente é o principal. |
+| `ativo` | `BOOLEAN`, padrão `true` | A remoção é **por inativação** (`ativo = false`), não apaga a linha, preservando futuras referências de pedidos. |
+| `criado_em` | `TIMESTAMPTZ` | Usado para promover o ativo mais antigo quando o principal é removido. |
+
+Regra de endereço principal, garantida pelo banco e pela aplicação: o índice único parcial `ux_endereco_principal_ativo ON endereco (cliente_id) WHERE principal AND ativo` impede mais de um principal ativo por cliente. A troca (`PUT /api/clientes/me/enderecos/{id}/principal`) e a promoção do endereço ativo mais antigo ao remover o principal ficam em `cliente.dominio.RegraEnderecoPrincipal`.
+
+### 1.2 Pedido como implementado (`implementado`, E4)
+
+Tabelas criadas pela migração `V2__pedidos.sql`; as classes JPA estão em `pedido.dominio`. O `Pedido` é o agregado raiz: itens, descontos e histórico só se alteram por ele, e o snapshot comercial não tem setters. Valores monetários em `NUMERIC(12,2)` (`Dinheiro` no código). Pacote e fluxo em [03-arquitetura.md](03-arquitetura.md); ciclo de vida em [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md).
+
+**`pedido`** (`Pedido`)
+
+| Campo | Tipo | Regras |
+|---|---|---|
+| `id` | `BIGINT` identidade | Chave primária. |
+| `cliente_id` | `BIGINT`, obrigatório | Referencia `cliente`; apenas o id no código (sem associação JPA entre módulos). Nunca muda. |
+| `situacao` | `TEXT`, obrigatório | `CHECK` restrito aos 8 valores de `SituacaoPedido`. É o valor persistido do estado; o objeto de estado (`EstadoPedido`) é derivado dele e não é persistido. |
+| `entrega_apelido`, `entrega_cep`, `entrega_logradouro`, `entrega_numero`, `entrega_complemento`, `entrega_bairro`, `entrega_cidade`, `entrega_uf` | texto | **Snapshot do endereço**: campos copiados do endereço no momento da compra (classe embutida `EnderecoEntrega`), sem chave estrangeira para `endereco`. Alterar ou remover o endereço do cliente depois não muda o pedido. `apelido` e `complemento` são opcionais. |
+| `subtotal`, `total_descontos`, `frete`, `total` | `NUMERIC(12,2)`, obrigatórios | Copiados do cálculo de preço; imutáveis. A fábrica `Pedido.criar` exige `subtotal` igual à soma dos itens, `total_descontos` igual à soma dos descontos e `total = subtotal - total_descontos + frete`. |
+| `criado_em` | `TIMESTAMPTZ`, obrigatório | Momento da criação. |
+| `versao` | `BIGINT`, padrão `0` | `@Version`: **lock otimista**. Na disputa de duas transições simultâneas a segunda falha ao gravar e vira 409. |
+
+Índices: `ix_pedido_cliente_criado_em (cliente_id, criado_em DESC)` (listagem do cliente, do mais recente ao mais antigo) e `ix_pedido_situacao` (filtro administrativo).
+
+**`pedido_item`** (`ItemPedido`): `pedido_id` (referência), `sku`, `nome_produto`, `descricao_variacao` (opcional), `quantidade` (`CHECK` > 0), `preco_unitario` e `total_item`. Guarda o SKU (sem chave estrangeira para a variação, que só existe a partir da etapa 2); índice `ix_pedido_item_pedido`.
+
+**`pedido_desconto`** (`DescontoPedido`): `pedido_id`, `descricao`, `origem` (`CHECK`: `PROMOCAO` ou `CUPOM`), `alvo` (`CHECK`: `ITENS` ou `FRETE`) e `valor`. Um pedido sem desconto simplesmente não tem linhas.
+
+**`pedido_historico`** (`EntradaHistorico`): `pedido_id`, `de` (**nulo** na entrada de criação; `CHECK` com os 8 valores), `para` (`CHECK`), `ocorrido_em`, `responsavel_tipo` (`CHECK`: `CLIENTE`, `ADMINISTRATIVO` ou `SISTEMA`), `responsavel_usuario_id` (nulo para `SISTEMA`) e `motivo` (obrigatório no cancelamento, validado pelo agregado). Ordenado pelo id (ordem de gravação). Registro de fatos: as colunas são `updatable = false` no mapeamento.
+
+Itens, descontos e histórico são coleções do agregado (`@OneToMany` com cascade e `orphanRemoval`, carregadas por `SUBSELECT`); a listagem usa um resumo (`ResumoPedido`: id, cliente, situação, total e data) que não as carrega. A migração e as restrições são verificadas por `infra.MigracaoV2Tests`.
 
 ## 2. Diagrama de classes preliminar
 
@@ -44,26 +115,37 @@ classDiagram
         +Long id
         +String email
         +String senhaHash
-        +Perfil perfil
+        +boolean ativo
+        +Set~Perfil~ perfis
     }
     class Perfil {
         <<enumeration>>
         CLIENTE
-        ADMINISTRADOR
+        ADMIN
+        OPERADOR_COMERCIAL
+        ESTOQUE
+        PROMOCOES
     }
     class Cliente {
         +Long id
+        +Long usuarioId
         +String nome
-        +String documento
+        +Cpf cpf
         +String telefone
     }
     class Endereco {
         +Long id
+        +Long clienteId
+        +String apelido
+        +String cep
         +String logradouro
         +String numero
+        +String complemento
+        +String bairro
         +String cidade
         +String uf
-        +String cep
+        +boolean principal
+        +boolean ativo
     }
 
     class Categoria {
@@ -109,24 +191,35 @@ classDiagram
 
     class Pedido {
         +Long id
-        +EstadoPedido estado
+        +SituacaoPedido situacao
+        +EnderecoEntrega entrega
         +BigDecimal subtotal
-        +BigDecimal descontos
+        +BigDecimal totalDescontos
         +BigDecimal frete
         +BigDecimal total
-        +String codigoCupom
+        +Long versao
     }
     class ItemPedido {
         +String sku
         +String nomeProduto
-        +BigDecimal precoUnitario
+        +String descricaoVariacao
         +int quantidade
+        +BigDecimal precoUnitario
+        +BigDecimal totalItem
     }
-    class HistoricoPedido {
-        +EstadoPedido de
-        +EstadoPedido para
+    class EntradaHistorico {
+        +SituacaoPedido de
+        +SituacaoPedido para
+        +Instant ocorridoEm
+        +TipoResponsavel responsavelTipo
+        +Long responsavelUsuarioId
         +String motivo
-        +Instant em
+    }
+    class DescontoPedido {
+        +String descricao
+        +OrigemDesconto origem
+        +AlvoDoDesconto alvo
+        +BigDecimal valor
     }
     class PromocaoAplicada {
         +String nomePromocao
@@ -170,8 +263,8 @@ classDiagram
         +String codigoRastreio
     }
 
-    Usuario "1" --> "0..1" Cliente : conta
-    Usuario --> Perfil
+    Cliente "0..1" ..> "1" Usuario : usuarioId
+    Usuario --> "1..*" Perfil
     Cliente "1" *-- "1..*" Endereco : possui
 
     Categoria "0..1" o-- "*" Categoria : subcategorias
@@ -189,8 +282,8 @@ classDiagram
     Cliente "1" --> "*" Pedido : realiza
     Pedido "1" *-- "1..*" ItemPedido : itens
     ItemPedido "*" ..> "1" VariacaoProduto : origem
-    Pedido "1" *-- "*" HistoricoPedido : historico
-    Pedido "1" *-- "*" PromocaoAplicada : descontos
+    Pedido "1" *-- "*" EntradaHistorico : historico
+    Pedido "1" *-- "*" DescontoPedido : descontos
     PromocaoAplicada "*" ..> "1" Promocao : origem
     Pedido "1" --> "*" Pagamento : pagamentos
     Pedido "1" --> "0..1" Entrega : entrega
@@ -205,7 +298,8 @@ classDiagram
 ```
 
 Pontos de leitura:
-- A seta tracejada de `ItemPedido` para `VariacaoProduto` e de `Entrega` para `Endereco` indica referência para fins de rastreio, não dependência de valores. Os dados comerciais são copiados (seção 5).
+- `Usuario` e `Perfil` (com as regras de acesso) pertencem ao módulo `seguranca`; `Cliente` referencia o usuário apenas por `usuarioId` (seta tracejada), sem acoplar os módulos. Os atributos de `Usuario`, `Cliente` e `Endereco` (E1) e de `Pedido`, `ItemPedido`, `DescontoPedido` e `EntradaHistorico` (E4) no diagrama já refletem o código.
+- A seta tracejada de `ItemPedido` para `VariacaoProduto` (hoje só o SKU copiado) e de `Entrega` para `Endereco` indica referência para fins de rastreio, não dependência de valores. Os dados comerciais são copiados (seção 5).
 - `Estoque` e `ReservaEstoque` pertencem ao módulo de estoque. O pedido guarda apenas a referência à reserva.
 - `CondicaoElegibilidade` é detalhada no diagrama da seção 6.
 
@@ -242,12 +336,12 @@ O enunciado exige que alterações futuras de preço não modifiquem pedidos ant
 |---|---|
 | SKU, nome do produto e atributos da variação, preço unitário, quantidade | `ItemPedido` |
 | Subtotal, soma dos descontos, frete e total | `Pedido` |
-| Nome e valor de cada promoção ou cupom aplicado | `PromocaoAplicada` (nome copiado, referência opcional à promoção) |
-| Código do cupom usado | `Pedido` |
-| Endereço de entrega (campos copiados) e modalidade/custo do frete | `Entrega` |
-| Estado e transições, com data e motivo | `HistoricoPedido` |
+| Descrição, origem (`PROMOCAO` ou `CUPOM`), alvo (itens ou frete) e valor de cada desconto, inclusive o do cupom | `DescontoPedido` (descrição copiada; a referência à promoção chega com a etapa 5) |
+| Endereço de entrega (campos copiados, sem chave estrangeira) | colunas `entrega_*` do `Pedido` (`EnderecoEntrega`) |
+| Valor do frete | `Pedido.frete` (modalidade e rastreio ficam em `Entrega`, etapa 7) |
+| Situação e transições, com data, responsável e motivo | `EntradaHistorico` |
 
-Regra: depois que o pedido é criado, nenhum cálculo dele depende do preço atual do catálogo nem da promoção atual. A referência à variação serve apenas para rastreio e relatórios.
+Implementado na E4 (`pedido.aplicacao.CriarPedidoTests`: preço e endereço alterados ou removidos depois da compra não mudam o pedido). Regra: depois que o pedido é criado, nenhum cálculo dele depende do preço atual do catálogo nem da promoção atual. A referência à variação serve apenas para rastreio e relatórios.
 
 ## 6. Combos e kits (opcional, decisão proposta)
 
@@ -313,7 +407,10 @@ O segundo grupo do diagrama mostra as **condições de elegibilidade** combináv
 | Produto separado de variação (SKU) com atributos nome/valor | `proposto` |
 | Estoque associado à variação | `proposto` |
 | Categorias em árvore, regra da categoria vale para subcategorias | `proposto` (confirmar em E5) |
-| Pedido com cópia dos dados comerciais (snapshot) | decidido (exigência do enunciado) |
+| Pedido com cópia dos dados comerciais (snapshot) | decidido (exigência do enunciado); `implementado` na E4 (seção 1.2) |
+| Concorrência nas transições do pedido: lock otimista (`@Version`, coluna `versao`) em vez de lock pessimista | `implementado` (E4) |
+| Histórico do pedido com entrada inicial de criação (`de` nulo) e responsável de três tipos | `implementado` (E4) |
 | Combos/kits via Composite, sem estoque próprio | `proposto`, opcional |
-| Tipo `Dinheiro` dedicado ou `BigDecimal` direto | em aberto, decidir em E1 |
+| Tipo `Dinheiro` dedicado ou `BigDecimal` direto | decidido na E1: tipo `Dinheiro` em `compartilhado.dominio` (`implementado`) |
+| `Usuario`/`Perfil` em `seguranca`; `Cliente` referencia `usuarioId`; endereço removido por inativação, com índice parcial de principal | `implementado` (E1) |
 | Mecanismo de concorrência no estoque (atualização condicional ou `@Version`) | em aberto, decidido em E4 (ver [05-regras-negocio.md](05-regras-negocio.md)) |

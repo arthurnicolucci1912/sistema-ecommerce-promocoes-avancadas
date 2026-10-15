@@ -2,7 +2,7 @@
 
 - **Objetivo:** mapear os cenários de teste exigidos pelo enunciado (e os necessários para validar as regras de negócio) para a etapa do roadmap em que serão implementados e para o tipo de teste (unitário ou integração).
 - **Etapas do roadmap relacionadas:** todas; cada cenário indica sua etapa (ver [08-roadmap.md](08-roadmap.md)).
-- **Status:** proposto (a lista de cenários é a base mínima; cada change de etapa pode acrescentar casos e deve atualizar esta tabela).
+- **Status:** proposto (a lista de cenários é a base mínima; cada change de etapa pode acrescentar casos e deve atualizar esta tabela). Cenários da E1 (T-SG-01 a T-SG-03) `implementado`, ver a seção 5. Cenários de pedido da E4 (T-PD-01 a T-PD-06 e o pedido em T-SG-01) `implementado` na change `pedido-ciclo-vida`, ver a seção 6.
 
 Documentos relacionados: [05-regras-negocio.md](05-regras-negocio.md) (regras testadas), [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md) (transições), [07-casos-de-uso.md](07-casos-de-uso.md) (fluxos).
 
@@ -11,9 +11,10 @@ Documentos relacionados: [05-regras-negocio.md](05-regras-negocio.md) (regras te
 - **Foco em comportamento, não em cobertura.** O enunciado pede testar comportamentos relevantes, e não atingir uma porcentagem elevada de cobertura. Nenhuma meta numérica de cobertura é adotada. Cada teste deve descrever uma regra de negócio observável.
 - **JUnit 5** (com AssertJ e Mockito) como tecnologia de teste; testes de integração com Spring Boot Test.
 - **Unitário:** testa uma classe ou pequeno grupo de classes de domínio sem Spring nem banco (promoção, condição, política de conflito, estado do pedido, cálculo de preço).
-- **Integração:** sobe o contexto Spring e usa o banco (PostgreSQL de teste ou contêiner descartável, a decidir na etapa 1) para validar persistência, transações, restrições de unicidade, concorrência e a API HTTP com segurança.
+- **Integração:** sobe o contexto Spring e usa um banco PostgreSQL real para validar persistência, transações, restrições de unicidade, concorrência e a API HTTP com segurança. **Decidido na E1: Testcontainers com PostgreSQL 17** (contêiner descartável, mesma versão do `docker-compose.yml`, esquema criado pelas migrações Flyway; exige Docker em execução, ver [10-execucao.md](10-execucao.md)). Os testes usam a anotação `@TesteDeIntegracao` e o perfil `test`; não há banco em memória.
 - **Integrações externas simuladas:** gateways de pagamento, provedores de frete e canais de notificação são substituídos por mocks, stubs ou implementações simuladas. Nenhum teste depende de serviço externo real nem de dados reais de cartão.
 - **Relógio controlável:** validade de promoções e cupons usa um `Clock` injetável para testar vigência e expiração de forma determinística.
+- **Testes de arquitetura (ArchUnit)**, `implementado` na E1: `arquitetura.RegrasDeArquiteturaTests` verifica que `dominio` não depende de `web`, `infra`, `aplicacao` nem de `org.springframework.web`, `stereotype` e `context`; que `web` não depende de `infra`; e que os contratos da onda 0 são interfaces e só têm implementação concreta em `infra`.
 - **Nomes de teste** descrevem o cenário em português (por exemplo, `rejeitaCupomExpirado`), de modo que a lista de testes funcione como documentação.
 - Cada change de etapa implementa os cenários marcados para sua etapa e mantém verdes os das anteriores (o sistema permanece executável).
 
@@ -102,6 +103,8 @@ Matriz de transições em [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md).
 | T-PD-05 | Pedido preserva os dados da compra após alteração de preço do produto | Itens, preços, descontos e frete do pedido permanecem os da data da compra | 4 | I |
 | T-PD-06 | Transição inválida via API (por exemplo, enviar pedido não pago) | Resposta de erro apropriada (conflito de estado) e nenhum efeito colateral | 4, 7 | I |
 
+Os cenários T-PD-01 a T-PD-06 estão `implementado` na E4 (classes na seção 6); o cancelamento por perfil (cliente x administrativo) e a disputa concorrente pelo mesmo pedido estão cobertos além da lista base.
+
 ### 2.7 Idempotência da confirmação de pagamento
 
 | ID | Cenário | Resultado esperado | Etapa | Tipo |
@@ -136,17 +139,17 @@ Matriz de transições em [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md).
 | Concorrência na última unidade | T-ES-05 | 2, 4 |
 | Cupom inválido (inexistente, expirado, limite, incompatível) | T-CU-01 a T-CU-04 | 5 |
 | Pagamento recusado | T-PG-01 | 6 |
-| Transição inválida de pedido | T-PD-02, T-PD-04, T-PD-06 | 4 |
+| Transição inválida de pedido | T-PD-02, T-PD-04, T-PD-06 (`implementado`, seção 6) | 4 |
 | Confirmação de pagamento repetida | T-ID-01 a T-ID-05 | 6 (e 8) |
 
 ## 4. Mapa dos testes por etapa
 
 | Etapa | Cenários |
 |---|---|
-| 1 Fundação | T-SG-01 (base), T-SG-02 (base), T-SG-03 |
+| 1 Fundação | T-SG-01 (base), T-SG-02 (base), T-SG-03 (`implementado`, ver a seção 5) |
 | 2 Catálogo e estoque | T-ES-01, T-ES-02, T-ES-05 (mecanismo), T-ES-08 |
 | 3 Carrinho | recálculo do carrinho, itens inválidos e composição do preço (acrescentar IDs `T-CA-xx` ao implementar) |
-| 4 Checkout e pedido | T-ES-03, T-ES-04, T-ES-05 (via checkout), T-ES-06, T-PD-01 a T-PD-06, T-SG-01 |
+| 4 Checkout e pedido | T-ES-03, T-ES-04, T-ES-05 (via checkout), T-ES-06, T-PD-01 a T-PD-06 (`implementado` na change `pedido-ciclo-vida`, seção 6), T-SG-01 (pedido `implementado`) |
 | 5 Promoções e cupons | T-PR-01 a T-PR-10, T-CF-01 a T-CF-08, T-CU-01 a T-CU-07, T-SG-02 |
 | 6 Pagamento e idempotência | T-PG-01 a T-PG-06, T-ES-06, T-ES-07, T-ID-01, T-ID-02, T-ID-04, T-ID-05 |
 | 7 Entrega e frete | T-EN-01, T-EN-02, T-PR-05, T-CF-08, T-PD-06 |
@@ -154,3 +157,59 @@ Matriz de transições em [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md).
 | 9 Relatórios | T-RL-01 |
 
 Os testes de carrinho (etapa 3) ainda não têm IDs detalhados: serão listados na change `carrinho-compras`, atualizando este documento.
+
+## 5. Cobertura da E1 (`implementado`)
+
+Todos os testes de integração usam Testcontainers (PostgreSQL 17). Pacotes abaixo de `br.com.fatec.ecommerce`.
+
+| ID | Cobertura na E1 | Classes de teste |
+|---|---|---|
+| T-SG-01 | Cliente não acessa endereço de outro cliente (resposta 404, endereço do outro intacto). Pedido e carrinho só na E3 e E4. | `cliente.web.EnderecosTests` (`acessarAlterarOuRemoverEnderecoDeOutroClienteRetorna404...`); também `cliente.web.CadastroClienteTests` (`/api/clientes/me` usa a identidade do token) |
+| T-SG-02 | Perfil sem permissão recebe 403 em Problem Details: `CLIENTE` e `ESTOQUE` em `/api/admin/usuarios`; administrativo sem cliente em `/api/clientes/me`. Promoções (`ESTOQUE` criando promoção) só na E5. | `seguranca.web.UsuariosAdministrativosTests`, `seguranca.web.AutenticacaoTests` (`perfilSemPermissaoRetorna403EmProblemDetail`), `cliente.web.CadastroClienteTests`, `cliente.web.EnderecosTests` |
+| T-SG-03 | Apenas hash no banco, login correto funciona e senha incorreta falha. | `seguranca.dominio.UsuarioPersistenciaTests` (`senhaPersistidaEhHashVerificavel`), `seguranca.web.AutenticacaoTests` (`loginBemSucedido`, `senhaIncorretaRetorna401Generico`), `seguranca.dominio.SenhaForteTests` (política de senha) |
+
+Demais testes da E1, para referência:
+
+| Assunto | Classes |
+|---|---|
+| Esquema e migração `V1` | `infra.MigracaoV1Tests` |
+| Erros em Problem Details, OpenAPI e saúde sem token | `compartilhado.web.TratadorGlobalDeErrosTests`, `compartilhado.web.PlataformaApiTests` |
+| `Dinheiro` | `compartilhado.dominio.DinheiroTest` |
+| Publicação de eventos | `compartilhado.infra.PublicadorEventosSpringTests` |
+| Usuários administrativos e regra do último `ADMIN` | `seguranca.web.UsuariosAdministrativosTests`, `seguranca.dominio.RegraUltimoAdminTests` |
+| Cadastro e dados do cliente, CPF | `cliente.web.CadastroClienteTests`, `cliente.dominio.CpfTests` |
+| Endereços e regra do endereço principal | `cliente.web.EnderecosTests`, `cliente.dominio.RegraEnderecoPrincipalTests` |
+| Usuários de demonstração (perfil `dev`) | `infra.demo.UsuariosDeDemonstracaoTests`, `infra.demo.UsuariosDeDemonstracaoForaDoDevTests` |
+| Regras de arquitetura | `arquitetura.RegrasDeArquiteturaTests` |
+
+## 6. Cobertura do pedido na E4 (`implementado`)
+
+Change `pedido-ciclo-vida`. Pacotes abaixo de `br.com.fatec.ecommerce`; os testes de integração usam Testcontainers (PostgreSQL 17).
+
+| ID | Cobertura na E4 | Classes de teste |
+|---|---|---|
+| T-PD-01 | Fluxo completo até `ENTREGUE`, com uma entrada de histórico por transição (mais a de criação), em ordem cronológica e com responsável e motivo. | `pedido.aplicacao.TransicionarPedidoTests` (`fluxoCompletoTerminaEmEntregue...`, `historicoVemEmOrdemCronologica...`); `pedido.dominio.PedidoTests` (`cadaTransicaoRegistraUmaEntradaDeHistorico...`) |
+| T-PD-02 | **Transição inválida:** os 56 pares estado x operação (11 válidas levam ao estado certo, 45 lançam `TransicaoInvalidaException` com estado e operação); a rejeição não altera situação, histórico nem eventos; via API responde 409 com `situacaoAtual` e `operacao`. | `pedido.dominio.estado.EstadosDoPedidoTests`; `pedido.dominio.PedidoTests` (`transicaoRejeitadaNaoAlteraSituacaoNemGeraHistoricoOuEvento`); `pedido.aplicacao.TransicionarPedidoTests` (`transicaoInvalidaNaoAlteraHistoricoNemPublicaEvento`); `pedido.web.PedidosAdministrativosTests` (`pularEtapaResponde409...`, `estadosFinaisRejeitamQualquerTransicao`) |
+| T-PD-03 | Cancelamento aceito nos 5 estados que admitem, com motivo e responsável; cliente cancela `CRIADO`, `AGUARDANDO_PAGAMENTO` e `PAGAMENTO_RECUSADO`, e o administrativo também `PAGO` e `EM_PREPARACAO`. | `pedido.dominio.estado.EstadosDoPedidoTests` (`clienteCancelaPedidoAindaNaoPago`); `pedido.dominio.PedidoTests` (`administradorCancelaPedidoPago...`); `pedido.web.PedidosAdministrativosTests` (`administradorCancelaPedidoPago...`, `operadorComercialCancelaPedidoEmPreparacao...`); `pedido.web.PedidosDoClienteTests` (`clienteCancelaPedidoAguardandoPagamento...`) |
+| T-PD-04 | Cancelamento a partir de `ENVIADO`, `ENTREGUE` ou `CANCELADO` rejeitado como transição inválida (409); cliente em `PAGO` ou `EM_PREPARACAO` também (política de RN-26). | `pedido.dominio.estado.EstadosDoPedidoTests` (`estadosFinaisRejeitamTodasAsOperacoes`, `clienteNaoCancelaPedidoPagoOuEmPreparacao`); `pedido.web.PedidosAdministrativosTests` (`cancelarPedidoEnviadoResponde409...`); `pedido.web.PedidosDoClienteTests` (`clienteNaoCancelaPedidoPagoEORecebe409...`) |
+| T-PD-05 | Pedido preserva preço e endereço depois de alterados ou removidos no cadastro; snapshot sem setters e totais inconsistentes rejeitados. | `pedido.aplicacao.CriarPedidoTests` (`precoAlteradoDepoisDaCompra...`, `enderecoAlteradoOuRemovidoDepoisDaCompra...`, `pedidoCriadoEmAguardandoPagamentoPreservaOSnapshot...`); `pedido.dominio.PedidoTests` (`totalInconsistenteRejeitaOSnapshot` e relacionados) |
+| T-PD-06 | Transição inválida via API: 409 em Problem Details com `situacaoAtual` e `operacao`, sem alterar o pedido. | `pedido.web.PedidosAdministrativosTests`, `pedido.web.PedidosDoClienteTests` |
+| T-SG-01 (pedido) | Cliente não vê nem cancela pedido de outro cliente (404, pedido intacto); sem token 401; cliente na área administrativa 403; perfil sem permissão 403. | `pedido.web.PedidosDoClienteTests` (`pedidoDeOutroClienteResponde404...`), `pedido.web.PedidosAdministrativosTests` (`perfilSemPermissaoRecebe403...`, `clienteNaAreaAdministrativaRecebe403...`) |
+
+Demais cenários do pedido cobertos na E4:
+
+| Assunto | Classes |
+|---|---|
+| Esquema e restrições da migração `V2` (situação, quantidade > 0, origem e alvo do desconto, histórico com origem nula, versão) | `infra.MigracaoV2Tests` |
+| Eventos: cada uma das 11 transições válidas produz o evento esperado; `PedidoCancelado` leva responsável e motivo | `pedido.dominio.evento.EventosDoPedidoTests` |
+| Observer: um `@EventListener` registrado só no teste recebe `PedidoCancelado` com `de = PAGO` e nada é publicado em transição rejeitada | `pedido.aplicacao.OuvinteDeCancelamentoTests` |
+| Extensibilidade do State: um estado novo implementando `EstadoPedido` funciona sem alterar `Pedido` | `pedido.dominio.PedidoTests` (`estadoNovoImplementandoEstadoPedidoFuncionaSemAlterarOPedido`) |
+| Concorrência: lock otimista, envio e cancelamento simultâneos aplicam um e respondem 409 ao outro | `pedido.aplicacao.TransicionarPedidoTests` (`gravacaoComVersaoDesatualizadaViraConflito`, `envioECancelamentoSimultaneos...`) |
+| Criação, reserva confirmada e evento `PedidoCriado` | `pedido.aplicacao.CriarPedidoTests` |
+| Consultas: listagem própria paginada, do mais recente ao mais antigo; filtro por situação; detalhe com histórico | `pedido.web.PedidosDoClienteTests`, `pedido.web.PedidosAdministrativosTests` |
+| Andamento pelo `ESTOQUE` até a entrega e regras de rota por perfil | `pedido.web.PedidosAdministrativosTests` |
+| Pagamento simulado (temporário): aprovação, recusa e recusado não reabre o pedido; só `ADMIN` | `pedido.web.PagamentoSimuladoTests` |
+| Pedido de demonstração do perfil `dev` criado uma única vez; fora do `dev` nenhum pedido | `infra.demo.UsuariosDeDemonstracaoTests`, `infra.demo.UsuariosDeDemonstracaoForaDoDevTests` |
+| Regra de arquitetura nova: `compartilhado` não depende de módulos de negócio | `arquitetura.RegrasDeArquiteturaTests` (`compartilhadoNaoDependeDeModulosDeNegocio`) |
+
+Apoio de teste (não são testes): `pedido.PedidosParaTeste`, `pedido.PedidosPersistidosParaTeste` e `pedido.CapturaDeEventosDoPedido`.

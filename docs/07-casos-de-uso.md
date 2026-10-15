@@ -2,7 +2,7 @@
 
 - **Objetivo:** descrever os principais casos de uso do sistema (cliente e perfis administrativos) e registrar roteiros preliminares, em diagramas de sequência, para os três processos centrais pedidos no enunciado: checkout, aplicação de promoções e confirmação de pagamento.
 - **Etapas do roadmap relacionadas:** todas. Cada caso de uso indica a etapa em que será implementado (ver [08-roadmap.md](08-roadmap.md)). Os diagramas são refinados nas etapas 4 (checkout), 5 (promoções) e 6 (pagamento).
-- **Status:** proposto (diagramas e nomes de participantes são preliminares e podem mudar na implementação).
+- **Status:** proposto (diagramas e nomes de participantes são preliminares e podem mudar na implementação). Os casos UC-09 e UC-10 (parte de pedido) e UC-A07 a UC-A09 estão `implementado` na E4 (change `pedido-ciclo-vida`), com as rotas reais indicadas em cada um; o pagamento, a entrega e os efeitos de estoque, estorno e notificação continuam nas etapas 6 a 8.
 
 Documentos relacionados: [05-regras-negocio.md](05-regras-negocio.md) (regras citadas aqui), [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md) (estados do pedido), [09-testes.md](09-testes.md) (cenários de teste derivados destes fluxos).
 
@@ -157,29 +157,38 @@ flowchart LR
   - E1. Pagamento recusado: pedido em `PAGAMENTO_RECUSADO`, reserva liberada, cliente notificado.
   - A1. Nova tentativa de pagamento após recusa: regra a definir na etapa 6 (nova tentativa sobre o mesmo pedido ou novo checkout).
   - Observação: nenhum dado real de cartão é usado; os dados de demonstração são fictícios.
+  - **Temporário (E4):** até a etapa 6 não há gateway. O resultado do pagamento é simulado pelo endpoint administrativo `POST /api/admin/pedidos/{id}/pagamento-simulado` (ver UC-A07 a UC-A09), que a etapa 6 remove.
 
 ### UC-09 - Acompanhar pedido, pagamento e entrega
 - **Ator:** Cliente.
-- **Etapa:** 4 (pedido), 6 (pagamento), 7 (entrega).
-- **Pré-condições:** cliente autenticado.
+- **Etapa:** 4 (pedido, `implementado`), 6 (pagamento), 7 (entrega).
+- **Pré-condições:** cliente autenticado (perfil `CLIENTE`).
+- **Rotas (`implementado`):**
+  - `GET /api/clientes/me/pedidos`: lista paginada (`page`, `size`) dos próprios pedidos, do mais recente para o mais antigo, em resumo (id, situação, total e data).
+  - `GET /api/clientes/me/pedidos/{id}`: detalhe com itens, descontos, frete, totais, endereço de entrega e histórico de transições em ordem cronológica (com responsável e motivo).
 - **Fluxo principal:**
   1. O cliente lista seus pedidos.
-  2. Abre um pedido e vê itens, valores congelados, estado atual, histórico de transições, situação do pagamento e andamento da entrega.
+  2. Abre um pedido e vê itens, valores congelados, situação atual, histórico de transições, situação do pagamento e andamento da entrega (pagamento e entrega reais chegam nas etapas 6 e 7; hoje a situação já reflete a simulação de pagamento e as ações administrativas).
 - **Fluxos alternativos / erro:**
-  - E1. Pedido de outro cliente: acesso negado (ou "não encontrado").
+  - E1. Pedido de outro cliente ou inexistente: 404 (a busca é sempre por pedido e cliente, sem revelar a existência).
+  - E2. Página negativa ou tamanho menor que 1: 400. Sem token: 401; perfil administrativo na rota do cliente: 403.
 
 ### UC-10 - Cancelar pedido
 - **Ator:** Cliente (próprio pedido) ou perfil administrativo (UC-A09).
-- **Etapa:** 4 (cancelamento básico), 6 (estorno).
-- **Pré-condições:** pedido em estado que admite cancelamento (`CRIADO`, `AGUARDANDO_PAGAMENTO`, `PAGAMENTO_RECUSADO`, `PAGO` ou `EM_PREPARACAO`, conforme [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md)).
+- **Etapa:** 4 (cancelamento, `implementado`), 6 (estorno).
+- **Pré-condições:** pedido em estado que admite cancelamento (`CRIADO`, `AGUARDANDO_PAGAMENTO`, `PAGAMENTO_RECUSADO`, `PAGO` ou `EM_PREPARACAO`, conforme [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md)). O **cliente** só cancela em `CRIADO`, `AGUARDANDO_PAGAMENTO` e `PAGAMENTO_RECUSADO`; `PAGO` e `EM_PREPARACAO` só são cancelados por `ADMIN` ou `OPERADOR_COMERCIAL` (RN-26 em [05-regras-negocio.md](05-regras-negocio.md)).
+- **Rota do cliente (`implementado`):** `POST /api/clientes/me/pedidos/{id}/cancelamento` com `{"motivo": "..."}`.
 - **Fluxo principal:**
-  1. O ator solicita o cancelamento informando o motivo.
-  2. O sistema valida a transição, libera a reserva de estoque (se houver) e, se existir pagamento aprovado, dispara um estorno simulado.
-  3. O pedido vai para `CANCELADO` e o cancelamento é registrado no histórico.
-  4. O cliente é notificado.
+  1. O ator solicita o cancelamento informando o motivo (obrigatório).
+  2. O sistema valida a transição pelo estado atual do pedido e a registra.
+  3. O pedido vai para `CANCELADO`, o cancelamento é registrado no histórico (estado anterior, momento, responsável e motivo) e o evento `PedidoCancelado` é publicado.
+  4. *(Futuro)* Os ouvintes liberam a reserva de estoque (se houver), disparam o estorno simulado (se existir pagamento aprovado) e notificam o cliente (etapas de estoque, 6 e 8). Hoje o cancelamento muda o estado, grava o histórico e publica o evento.
 - **Fluxos alternativos / erro:**
-  - E1. Pedido `ENVIADO`, `ENTREGUE` ou já `CANCELADO`: transição inválida, erro e nenhuma alteração.
-  - E2. Falha no estorno simulado: comportamento a definir na etapa 6 (proposta: manter o pedido e registrar a falha para nova tentativa).
+  - E1. Pedido `ENVIADO`, `ENTREGUE` ou já `CANCELADO`: transição inválida, 409 com `situacaoAtual` e `operacao`, nenhuma alteração.
+  - E2. Cliente tenta cancelar pedido `PAGO` ou `EM_PREPARACAO`: 409 com `situacaoAtual` e `operacao` e o pedido não muda.
+  - E3. Motivo ausente ou em branco: 400 e o pedido não muda.
+  - E4. Pedido de outro cliente ou inexistente: 404.
+  - E5. Falha no estorno simulado: comportamento a definir na etapa 6 (proposta: manter o pedido e registrar a falha para nova tentativa).
 
 ### UC-11 - Receber notificações
 - **Ator:** Cliente (destinatário), sistema (emissor).
@@ -210,9 +219,9 @@ Os perfis que podem executar cada caso estão na coluna "Perfis". `ADMIN` pode e
 | UC-A04 | Gerenciar estoque | ADMIN, ESTOQUE | 2 |
 | UC-A05 | Gerenciar promoções | ADMIN, PROMOCOES | 5 |
 | UC-A06 | Gerenciar cupons | ADMIN, PROMOCOES | 5 |
-| UC-A07 | Consultar pedidos | ADMIN, OPERADOR_COMERCIAL | 4 |
-| UC-A08 | Avançar andamento do pedido (preparação, envio, entrega) | ADMIN, OPERADOR_COMERCIAL | 4, 7 |
-| UC-A09 | Cancelar pedido administrativamente | ADMIN, OPERADOR_COMERCIAL | 4, 6 |
+| UC-A07 | Consultar pedidos | ADMIN, OPERADOR_COMERCIAL | 4 (`implementado`) |
+| UC-A08 | Avançar andamento do pedido (preparação, envio, entrega) | ADMIN, ESTOQUE | 4 (`implementado`), 7 |
+| UC-A09 | Cancelar pedido administrativamente | ADMIN, OPERADOR_COMERCIAL | 4 (`implementado`), 6 |
 | UC-A10 | Consultar relatórios gerenciais | ADMIN, OPERADOR_COMERCIAL, PROMOCOES (relatório de campanhas) | 9 |
 | UC-A11 | Gerenciar usuários e perfis | ADMIN | 1 |
 | UC-A12 | Consultar trilha de auditoria | ADMIN | 8 |
@@ -256,12 +265,25 @@ Os perfis que podem executar cada caso estão na coluna "Perfis". `ADMIN` pode e
 - **Fluxos alternativos / erro:** código duplicado ou parâmetros inválidos: rejeitado.
 
 ### UC-A07 a UC-A09 - Pedidos (visão administrativa)
-- **Ator:** Administrador ou operador comercial.
-- **Pré-condições:** usuário com perfil permitido.
-- **Fluxo principal:** o ator filtra e consulta pedidos de qualquer cliente; avança o andamento (`PAGO` para `EM_PREPARACAO`, para `ENVIADO`, para `ENTREGUE`); ou cancela um pedido (conforme UC-10).
+- **Ator:** `ADMIN`, `OPERADOR_COMERCIAL` (consulta e cancelamento) e `ESTOQUE` (andamento).
+- **Pré-condições:** usuário com o perfil permitido para a rota.
+- **Rotas (`implementado`, E4)** sob `/api/admin/pedidos`:
+
+| Caso | Rota | Perfis |
+|---|---|---|
+| UC-A07 | `GET /api/admin/pedidos?situacao=&page=&size=` (lista paginada de qualquer cliente, filtro opcional por situação) e `GET /api/admin/pedidos/{id}` (detalhe com histórico) | `ADMIN`, `OPERADOR_COMERCIAL` |
+| UC-A08 | `POST /api/admin/pedidos/{id}/preparacao` (`PAGO` para `EM_PREPARACAO`), `POST /api/admin/pedidos/{id}/envio` (para `ENVIADO`) e `POST /api/admin/pedidos/{id}/entrega` (para `ENTREGUE`) | `ADMIN`, `ESTOQUE` |
+| UC-A09 | `POST /api/admin/pedidos/{id}/cancelamento` com `{"motivo": "..."}` | `ADMIN`, `OPERADOR_COMERCIAL` |
+| **Temporário** | `POST /api/admin/pedidos/{id}/pagamento-simulado` com `{"aprovado": true}` ou `{"aprovado": false}` | somente `ADMIN` |
+
+- **Fluxo principal:** o ator filtra e consulta pedidos de qualquer cliente; avança o andamento (`PAGO` para `EM_PREPARACAO`, para `ENVIADO`, para `ENTREGUE`); ou cancela um pedido (conforme UC-10; o administrativo cancela inclusive `PAGO` e `EM_PREPARACAO`).
+- **Endpoint de pagamento simulado (TEMPORÁRIO).** Existe só para tornar o fluxo exercitável até a etapa 6: aprova (`PAGO`) ou recusa (`PAGAMENTO_RECUSADO`) um pedido em `AGUARDANDO_PAGAMENTO`, com responsável `SISTEMA` e motivo "pagamento simulado" no histórico. Está marcado `@Deprecated` e descrito como temporário no Swagger, e a change `pagamento-idempotencia` o remove, quando o gateway passa a aprovar ou recusar o pedido. Um pedido `PAGAMENTO_RECUSADO` não é reaberto.
 - **Fluxos alternativos / erro:**
-  - E1. Transição inválida (por exemplo, enviar pedido `AGUARDANDO_PAGAMENTO`): erro e nenhuma alteração.
-  - A1. O cancelamento administrativo gera registro de auditoria com o responsável.
+  - E1. Transição inválida (por exemplo, enviar pedido `AGUARDANDO_PAGAMENTO`, pular etapa ou mexer em pedido de estado final): 409 em Problem Details com `situacaoAtual` e `operacao`, e nenhuma alteração.
+  - E2. Perfil sem permissão para a rota (por exemplo, `ESTOQUE` cancelando): 403; sem token: 401; cliente na área administrativa: 403.
+  - E3. Pedido inexistente: 404. Filtro `situacao` desconhecido: 400. Motivo do cancelamento ausente: 400.
+  - E4. Alterações simultâneas no mesmo pedido: uma é aplicada e a outra recebe 409 (lock otimista).
+  - A1. O cancelamento administrativo gera registro de auditoria com o responsável (a trilha de auditoria é da etapa 8; o histórico do pedido já registra o responsável).
 
 ### UC-A10 - Consultar relatórios
 - **Ator:** Administrador, operador comercial; responsável pelas promoções (relatório de campanhas).

@@ -46,10 +46,22 @@ O desafio central não é o CRUD de uma loja virtual, e sim uma arquitetura que 
 | 07 | [Casos de uso](07-casos-de-uso.md) | Casos de uso e diagramas de sequência |
 | 08 | [Roadmap](08-roadmap.md) | As 9 etapas incrementais e as changes do OpenSpec |
 | 09 | [Testes](09-testes.md) | Cenários de teste obrigatórios e a etapa que cobre cada um |
-| 10 | [Execução](10-execucao.md) | Como executar o sistema (placeholder até existir código) |
+| 10 | [Execução](10-execucao.md) | Como executar o sistema: pré-requisitos, Docker Compose, perfil `dev`, Swagger, usuários de demonstração e testes (`implementado` na E1) |
 | 11 | [Divisão da equipe](11-divisao-equipe.md) | Responsabilidades por integrante, ordem de trabalho e fluxo de revisão |
+| 12 | [Board de tarefas](12-board.md) | Andamento das changes por integrante (a fazer, em andamento, em revisão, feito) |
 
-Ordem sugerida de leitura: 01, 02, 03, 04, 05, 06, 07. Os documentos 08, 09, 10 e 11 são de planejamento e operação.
+Ordem sugerida de leitura: 01, 02, 03, 04, 05, 06, 07. Os documentos 08 a 12 são de planejamento e operação.
+
+## Como executar
+
+Resumo (detalhes, variáveis de ambiente e usuários de demonstração em [10-execucao.md](10-execucao.md)):
+
+```bash
+docker compose up -d
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+Swagger UI em <http://localhost:8080/swagger-ui/index.html>. Testes: `./mvnw test` (com Docker ativo, por causa do Testcontainers).
 
 ## Documentos x etapas do roadmap
 

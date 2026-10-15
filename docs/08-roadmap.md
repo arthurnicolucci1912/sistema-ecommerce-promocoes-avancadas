@@ -2,13 +2,13 @@
 
 - **Objetivo:** organizar a construção do sistema em 9 etapas incrementais, cada uma mapeada para uma futura change do OpenSpec, indicando escopo, documentos a atualizar, patterns introduzidos e o critério de "sistema executável" ao final. Atende à exigência do enunciado de desenvolvimento incremental com o sistema sempre executável.
 - **Etapas do roadmap relacionadas:** todas (este é o documento do roadmap).
-- **Status:** proposto (ordem e divisão podem ser revistas, registrando o motivo, na change da etapa afetada).
+- **Status:** proposto (ordem e divisão podem ser revistas, registrando o motivo, na change da etapa afetada). A etapa 1 foi arquivada; a etapa 4 foi dividida em duas changes, `pedido-ciclo-vida` (implementada, em revisão até o commit e o arquivamento) e `checkout` (a fazer, depois de `carrinho-compras`). A sequência de execução está na seção 7.
 
 Documentos relacionados: [07-casos-de-uso.md](07-casos-de-uso.md), [09-testes.md](09-testes.md), [10-execucao.md](10-execucao.md), [05-regras-negocio.md](05-regras-negocio.md), [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md).
 
 ## 1. Visão geral
 
-O enunciado sugere a sequência: clientes, produtos, catálogo e carrinho; depois pedidos, estoque e checkout; depois promoções e cupons; por fim pagamentos, entrega, notificações e relatórios. O roadmap abaixo detalha essa sequência em 9 etapas. Regras que valem para todas:
+O enunciado sugere a sequência: clientes, produtos, catálogo e carrinho; depois pedidos, estoque e checkout; depois promoções e cupons; por fim pagamentos, entrega, notificações e relatórios. O roadmap abaixo detalha essa sequência em 9 etapas; a etapa 4 foi dividida em duas changes (4a `pedido-ciclo-vida` e 4b `checkout`), porque o pedido não depende de nenhum outro módulo e o checkout depende do carrinho e do estoque. A ordem em que as changes são de fato executadas, com as dependências, está na seção 7. Regras que valem para todas:
 
 - Cada etapa é uma change do OpenSpec (propose, apply, archive) e termina com o sistema **compilando, com testes passando e executável** (a aplicação sobe, migrações rodam e o fluxo implementado até ali pode ser exercitado via API/Swagger).
 - Cada etapa atualiza os documentos de `docs/` listados, mudando o `Status` de `proposto` para `implementado` onde couber e registrando decisões que mudaram.
@@ -17,10 +17,12 @@ O enunciado sugere a sequência: clientes, produtos, catálogo e carrinho; depoi
 
 ```mermaid
 flowchart LR
-    E1[1 Fundação] --> E2[2 Catálogo e estoque]
+    E1[1 Fundação] --> E4a[4a Pedido e ciclo de vida]
+    E1 --> E2[2 Catálogo e estoque]
     E2 --> E3[3 Carrinho]
-    E3 --> E4[4 Checkout e pedido]
-    E4 --> E5[5 Promoções e cupons]
+    E3 --> E4b[4b Checkout]
+    E4a --> E4b
+    E4b --> E5[5 Promoções e cupons]
     E5 --> E6[6 Pagamento e idempotência]
     E6 --> E7[7 Entrega e frete]
     E7 --> E8[8 Eventos, notificações e auditoria]
@@ -34,7 +36,8 @@ flowchart LR
 | 1 | Fundação | `fundacao-projeto` | nenhum obrigatório |
 | 2 | Catálogo e estoque | `catalogo-estoque` | Composite (categorias e combos/kits) |
 | 3 | Carrinho | `carrinho-compras` | Chain of Responsibility (pipeline de preço, passos iniciais) |
-| 4 | Checkout e pedido | `checkout-pedido` | Facade, State |
+| 4a | Pedido e ciclo de vida | `pedido-ciclo-vida` (implementada) | State, Observer (lado publicador) |
+| 4b | Checkout | `checkout` | Facade |
 | 5 | Promoções e cupons | `promocoes-cupons` | Strategy, Composite (Specification), Factory Method, Chain of Responsibility (passos de promoção e cupom) |
 | 6 | Pagamento e idempotência | `pagamento-idempotencia` | Adapter |
 | 7 | Entrega e frete | `entrega-frete` | Strategy/Adapter (provedores de frete, ver nota) |
@@ -81,17 +84,34 @@ Os patterns e suas justificativas estão em [04-design-patterns.md](04-design-pa
 - **Patterns que entram:** Chain of Responsibility (pipeline de preço; os passos de promoção, cupom e frete entram nas etapas seguintes).
 - **Critério de sistema executável:** um cliente autenticado monta o carrinho pela API e vê os valores recalculados a cada alteração; itens inexistentes ou quantidades inválidas são rejeitados.
 
-### Etapa 4 - Checkout e pedido
-- **Change sugerida:** `checkout-pedido`
+### Etapa 4 - Pedido e checkout (duas changes)
+
+A etapa foi dividida porque o pedido (snapshot, ciclo de vida, cancelamento, histórico e consultas) não depende de nenhum outro módulo, e o checkout depende do carrinho e do estoque, que ainda não existem. O pedido é entregue primeiro (4a), e deixa pronto o ponto de integração (`CriarPedido` e `ConfirmarReservaDoPedido`) que o checkout (4b) vai usar. Responsável pelas duas: Arthur ([11-divisao-equipe.md](11-divisao-equipe.md)).
+
+#### 4a. Pedido e ciclo de vida
+- **Change:** `pedido-ciclo-vida` (Arthur). **Situação:** implementada; em revisão até o commit e o arquivamento.
+- **Escopo (implementado):**
+  - Módulo `pedido` com o agregado `Pedido` e o snapshot comercial imutável (itens, preços unitários, descontos, frete, totais e endereço de entrega copiado), conferido na criação.
+  - Ciclo de vida com 8 estados e 11 transições válidas, pelo pattern State; transição inválida responde 409 com `situacaoAtual` e `operacao` (ver [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md)).
+  - Histórico de cada transição, com a entrada inicial de criação, responsável e motivo (obrigatório no cancelamento); lock otimista contra transições simultâneas.
+  - Serviços `CriarPedido` e `ConfirmarReservaDoPedido` (usados pelo checkout), `TransicionarPedido`, `ConsultarPedidos` e `CancelarPedidoDoCliente`.
+  - API do cliente (listar, detalhar e cancelar os próprios pedidos) e administrativa (listar com filtro, detalhar, preparar, enviar, entregar e cancelar), com regra de cancelamento por perfil (UC-09, UC-10, UC-A07 a UC-A09).
+  - Eventos de domínio de cada transição (`PedidoCriado`, `PedidoPago`, `PedidoPagamentoRecusado`, `PedidoEmPreparacao`, `PedidoEnviado`, `PedidoEntregue`, `PedidoCancelado`): lado publicador do Observer.
+  - **Temporário:** endpoint administrativo de pagamento simulado, que a etapa 6 remove.
+  - Pedido de demonstração do `cliente@demo.local` no perfil `dev`.
+- **Fora do escopo (próximas changes):** checkout, reserva, baixa e reposição de estoque, estorno e expiração automática do pagamento; os efeitos sobre outros módulos serão ouvintes dos eventos.
+- **Documentos atualizados:** `02-modelo-dominio.md`, `03-arquitetura.md`, `04-design-patterns.md` (State e publicador do Observer), `05-regras-negocio.md` (RN-23, RN-26, RN-28), `06-ciclo-vida-pedido.md`, `07-casos-de-uso.md`, `09-testes.md`, `10-execucao.md`, `12-board.md`.
+- **Patterns que entram:** State (ciclo de vida do pedido) e Observer (publicador, com os ouvintes nas etapas seguintes).
+- **Critério de sistema executável:** o pedido de demonstração em `AGUARDANDO_PAGAMENTO` vai a `PAGO` pela simulação, avança até `ENVIADO` com `estoque@demo.local`, o cancelamento nesse estado responde 409 e o histórico é consultado pelo cliente; transição inválida gera erro e o cancelamento respeita o perfil.
+
+#### 4b. Checkout
+- **Change:** `checkout` (Arthur), depois de `carrinho-compras` (e de `catalogo-estoque`, para a reserva).
 - **Escopo:**
-  - Checkout que transforma o carrinho válido em pedido (UC-07), revalidando preços, estoque, endereço e dados correntes; reserva de estoque tudo-ou-nada ao criar o pedido.
-  - Pedido com snapshot comercial (preços, itens, descontos, frete) imutável a alterações futuras de preço.
-  - Ciclo de vida completo com transições validadas e histórico (ver [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md)); consulta de pedidos pelo cliente e pelos administradores (UC-09, UC-A07, UC-A08).
-  - Cancelamento com liberação da reserva (UC-10, UC-A09). O estorno simulado entra na etapa 6.
-  - Pagamento ainda não integrado: um endpoint/serviço administrativo temporário ou simulação mínima permite avançar o pedido até `PAGO`, para manter o fluxo exercitável (removido ou absorvido na etapa 6).
-- **Documentos a atualizar:** `02-modelo-dominio.md`, `03-arquitetura.md`, `04-design-patterns.md` (Facade, State), `05-regras-negocio.md`, `06-ciclo-vida-pedido.md`, `07-casos-de-uso.md` (diagrama de checkout), `09-testes.md`.
-- **Patterns que entram:** Facade (orquestração do checkout), State (ciclo de vida do pedido).
-- **Critério de sistema executável:** da inclusão no carrinho até a criação de um pedido em `AGUARDANDO_PAGAMENTO` com estoque reservado; estoque insuficiente bloqueia o checkout; transição inválida gera erro; cancelamento libera a reserva.
+  - Checkout que transforma o carrinho válido em pedido (UC-07), revalidando preços, estoque, endereço e dados correntes; reserva de estoque tudo-ou-nada ao criar o pedido. Chama `CriarPedido` e `ConfirmarReservaDoPedido` na mesma transação, depois de reservar o estoque (o pedido nasce em `AGUARDANDO_PAGAMENTO`).
+  - Reação do estoque aos eventos do pedido: liberação da reserva no cancelamento e na recusa (ouvintes de `PedidoCancelado` e `PedidoPagamentoRecusado`, conforme o campo `de`). O estorno simulado entra na etapa 6.
+- **Documentos a atualizar:** `03-arquitetura.md`, `04-design-patterns.md` (Facade), `05-regras-negocio.md` (RN-18 a RN-22), `07-casos-de-uso.md` (diagrama de checkout), `09-testes.md`, `10-execucao.md`.
+- **Patterns que entram:** Facade (orquestração do checkout).
+- **Critério de sistema executável:** da inclusão no carrinho até a criação de um pedido em `AGUARDANDO_PAGAMENTO` com estoque reservado; estoque insuficiente bloqueia o checkout; cancelamento libera a reserva.
 
 ### Etapa 5 - Promoções e cupons
 - **Change sugerida:** `promocoes-cupons`
@@ -116,6 +136,7 @@ Os patterns e suas justificativas estão em [04-design-patterns.md](04-design-pa
   - Cancelamento de pedido pago dispara estorno simulado.
   - Troca de fornecedor sem alterar as regras centrais (demonstrada trocando o adaptador).
   - Nesta etapa a reação ao pagamento pode ser chamada direta entre serviços; a etapa 8 a converte em eventos.
+  - **Remover a simulação de pagamento** da change `pedido-ciclo-vida` (endpoint administrativo temporário `POST /api/admin/pedidos/{id}/pagamento-simulado`): o gateway passa a aprovar ou recusar o pedido pelas operações `confirmarPagamento` e `recusarPagamento` já existentes no pedido.
 - **Documentos a atualizar:** `03-arquitetura.md`, `04-design-patterns.md` (Adapter), `05-regras-negocio.md` (idempotência, estorno), `06-ciclo-vida-pedido.md`, `07-casos-de-uso.md` (diagrama de pagamento), `09-testes.md`.
 - **Patterns que entram:** Adapter (gateways de pagamento).
 - **Critério de sistema executável:** compra completa até `PAGO` com baixa de estoque; pagamento recusado leva a `PAGAMENTO_RECUSADO` com a reserva liberada; a mesma confirmação enviada duas vezes produz um único efeito.
@@ -167,12 +188,12 @@ Cada seção obrigatória do enunciado é atendida por pelo menos uma etapa. A c
 | Promoções, condições, conflitos, administração | 5 |
 | Cupons | 5 |
 | Formação do preço | 3, 5, 7 |
-| Checkout | 4 |
-| Pedidos e ciclo de vida | 4 |
+| Checkout | 4b |
+| Pedidos e ciclo de vida | 4a |
 | Pagamentos | 6 |
 | Idempotência | 6 |
 | Entrega e frete, frete grátis | 7 (frete grátis também 5) |
-| Cancelamento | 4, 6 (estorno) |
+| Cancelamento | 4a, 4b (liberação da reserva), 6 (estorno) |
 | Notificações | 8 |
 | Eventos do sistema | 8 |
 | Auditoria | 8 |
@@ -233,3 +254,23 @@ Na defesa o professor pode pedir uma pequena alteração (nova promoção, forma
 | Nova transportadora | Novo provedor de frete | Registro dos provedores |
 | Novo canal de notificação | Novo canal e listener/configuração | Nenhum código no módulo de pedidos |
 | Nova política de conflito | Nova implementação da política | Configuração que escolhe a política |
+
+## 7. Ordem sequencial de execução
+
+Ordem em que as changes são executadas (uma depois da outra, cada uma com o sistema executável ao final). A etapa 4 aparece em duas changes; as demais seguem a numeração das etapas, com `pedido-ciclo-vida` na frente por não depender de nenhum outro módulo. Os responsáveis são os de [12-board.md](12-board.md) e [11-divisao-equipe.md](11-divisao-equipe.md).
+
+| Ordem | Change | Responsável | Depende de | Situação |
+|:-:|---|---|---|---|
+| 1 | `pedido-ciclo-vida` | Arthur | `fundacao-projeto` (arquivada) | implementada; em revisão até o commit e o arquivamento |
+| 2 | `catalogo-estoque` | Lucas | `fundacao-projeto` | a fazer |
+| 3 | `carrinho-compras` | Lucas | `catalogo-estoque` | a fazer |
+| 4 | `checkout` | Arthur | `pedido-ciclo-vida`, `catalogo-estoque` (reserva) e `carrinho-compras` | a fazer |
+| 5 | `promocoes-cupons` | Amanda | `carrinho-compras` (pipeline de preço) e `checkout` (descontos registrados no pedido) | a fazer |
+| 6 | `pagamento-idempotencia` | Mateus | `checkout` e `pedido-ciclo-vida`; **remove a simulação de pagamento** (endpoint temporário `pagamento-simulado`) | a fazer |
+| 7 | `entrega-frete` | Mateus | `checkout` e `promocoes-cupons` (frete grátis como promoção) | a fazer |
+| 8 | `eventos-notificacoes-auditoria` | Mateus (eventos e notificações) e Amanda (auditoria) | `pagamento-idempotencia` e os eventos do pedido (`pedido-ciclo-vida`) | a fazer |
+| 9 | `relatorios-gerenciais` | Lucas | `checkout` e `promocoes-cupons` (snapshots dos pedidos e descontos) | a fazer |
+
+Observações:
+- As changes de pessoas diferentes que só dependem da fundação (`catalogo-estoque`, `promocoes-cupons` em domínio puro, `pagamento-idempotencia` e `entrega-frete` em adaptadores) podem andar em paralelo, conforme as ondas de [11-divisao-equipe.md](11-divisao-equipe.md); a ordem acima é a sequência de integração.
+- Cada change integra com as anteriores por contratos e eventos: por exemplo, o `checkout` usa os serviços do pedido, e o estoque, o pagamento e a notificação reagem aos eventos do pedido sem alterá-lo.

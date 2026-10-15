@@ -4,7 +4,7 @@
 >
 > **Etapas do roadmap relacionadas:** 2 (catálogo e estoque), 3 (carrinho e recálculo), 4 (checkout e pedido), 5 (promoções e cupons), 6 (pagamento e idempotência), 7 (entrega e frete). Ver [08-roadmap.md](08-roadmap.md).
 >
-> **Status:** proposto. As decisões D4 (conflito), D5 (estoque) e D6 (idempotência) do design da change vêm do design aprovado; os pontos marcados como *premissa* são escolhas preliminares desta documentação e podem ser revistas na change da etapa, registrando o motivo.
+> **Status:** proposto, com RN-23, RN-26 e RN-28 `implementado` na E4 (change `pedido-ciclo-vida`; os efeitos de estoque, cupom e estorno de RN-26 e RN-27 continuam futuros). As decisões D4 (conflito), D5 (estoque) e D6 (idempotência) do design da change vêm do design aprovado; os pontos marcados como *premissa* são escolhas preliminares desta documentação e podem ser revistas na change da etapa, registrando o motivo.
 
 Documentos relacionados: [04-design-patterns.md](04-design-patterns.md), [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md), [09-testes.md](09-testes.md).
 
@@ -237,6 +237,8 @@ O sistema responde com as duas divergências (preço do Teclado e promoção P2 
 O pedido grava uma cópia (snapshot) dos dados comerciais: preço unitário, cada promoção aplicada com seu valor, cupom, frete e total. Alterações futuras de preço ou promoção não alteram pedidos antigos.
 *Exemplo:* o Teclado, comprado a R$ 220,00, passa a custar R$ 250,00; o pedido continua mostrando R$ 220,00.
 
+**Status:** `implementado` na E4. O agregado `Pedido` copia itens (SKU, nome, descrição da variação, preço unitário, quantidade, total do item), descontos (descrição, origem `PROMOCAO` ou `CUPOM`, alvo `ITENS` ou `FRETE`, valor), frete, totais e o endereço de entrega, sem setters, e confere na criação que `subtotal` é a soma dos itens e `total = subtotal - descontos + frete` (senão, `DadoInvalidoException`: "Totais inconsistentes"). O cupom entra como um desconto com origem `CUPOM`. Teste: `pedido.aplicacao.CriarPedidoTests` (preço e endereço alterados depois da compra não mudam o pedido). A revalidação do checkout (RN-22) é da change `checkout`.
+
 ---
 
 ## 7. Idempotência da confirmação de pagamento
@@ -258,9 +260,15 @@ Observação: uma confirmação com **outro** identificador para um pedido que j
 ## 8. Cancelamento e estorno
 
 ### RN-26. Estados que permitem cancelar e efeitos
-O cancelamento é permitido a partir de `CRIADO`, `AGUARDANDO_PAGAMENTO`, `PAGAMENTO_RECUSADO`, `PAGO` e `EM_PREPARACAO`. Em `ENVIADO`, `ENTREGUE` e `CANCELADO` é uma transição inválida (erro).
+O cancelamento é permitido a partir de `CRIADO`, `AGUARDANDO_PAGAMENTO`, `PAGAMENTO_RECUSADO`, `PAGO` e `EM_PREPARACAO`. Em `ENVIADO`, `ENTREGUE` e `CANCELADO` é uma transição inválida (erro 409, nenhuma alteração). O motivo é obrigatório.
 
-| Estado de origem | Estoque | Pagamento | Cupom |
+**Política por perfil (decidida na E4).** Quem pode cancelar depende do estado:
+- **Cliente** (somente o próprio pedido): `CRIADO`, `AGUARDANDO_PAGAMENTO` e `PAGAMENTO_RECUSADO`.
+- **`ADMIN` e `OPERADOR_COMERCIAL`**: todos os estados que admitem cancelamento, inclusive `PAGO` e `EM_PREPARACAO`.
+- Em `PAGO` e `EM_PREPARACAO` só o cancelamento administrativo é aceito (o cliente recebe 409): depois do pagamento, o cancelamento envolve estorno e reposição de estoque, e por isso fica com a administração. O perfil `ESTOQUE` não cancela.
+- A regra mora nos estados `Pago` e `EmPreparacao` (não no controller): mudar a política exige ajustar só essas duas classes. Ver [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md), seção 8.2.
+
+| Estado de origem | Estoque *(futuro)* | Pagamento *(futuro)* | Cupom *(futuro)* |
 |---|---|---|---|
 | `CRIADO` | nada a liberar (sem reserva) | nada | uso devolvido, se consumido |
 | `AGUARDANDO_PAGAMENTO` | reserva liberada | cobrança pendente cancelada | uso devolvido |
@@ -268,12 +276,18 @@ O cancelamento é permitido a partir de `CRIADO`, `AGUARDANDO_PAGAMENTO`, `PAGAM
 | `PAGO` | unidades repostas (a baixa é revertida, pois a mercadoria não saiu) *(premissa)* | **estorno simulado** | uso devolvido |
 | `EM_PREPARACAO` | unidades repostas *(premissa)* | **estorno simulado** | uso devolvido |
 
+**Status:** `implementado` na E4 quanto às regras de estado, perfil, motivo e histórico (testes: `pedido.dominio.estado.EstadosDoPedidoTests`, `pedido.dominio.PedidoTests`, `pedido.web.PedidosDoClienteTests`, `pedido.web.PedidosAdministrativosTests`). Os efeitos das três colunas da tabela (estoque, pagamento e cupom) **não são executados ainda**: o `PedidoCancelado` é publicado com o estado de origem (`de`) e esses efeitos serão ouvintes nas etapas de estoque, pagamento (E6) e cupons (E5).
+
 ### RN-27. Estorno simulado
+**Status:** futuro (etapa 6, `pagamento-idempotencia`); nesta etapa só o evento `PedidoCancelado` com `de` é publicado.
+
 Se existe pagamento aprovado, o cancelamento chama o contrato do gateway para estornar o valor total pago (sem transação financeira real). O estorno também é idempotente: um pedido não é estornado duas vezes.
 *Exemplo:* pedido `PAGO` de R$ 261,00 é cancelado: estorno simulado de R$ 261,00, unidades repostas, uso do cupom devolvido, pedido em `CANCELADO`.
 
 ### RN-28. O cancelamento fica no histórico
-Todo cancelamento registra no histórico do pedido: estado anterior, momento, responsável (cliente, administrador ou sistema, no caso de expiração) e motivo. O cancelamento de pedidos também entra na auditoria de operações administrativas.
+Todo cancelamento registra no histórico do pedido: estado anterior, momento, responsável (cliente, administrador ou sistema, no caso de expiração) e motivo. O cancelamento de pedidos também entra na auditoria de operações administrativas (etapa 8).
 *Exemplo:* "Pedido 100: `PAGO` para `CANCELADO`, por admin@loja, em 10/05/2026 14:32, motivo: pedido em duplicidade; estorno simulado realizado".
+
+**Status:** `implementado` na E4 (exceto a auditoria, etapa 8). Cada transição grava uma `EntradaHistorico` com estado anterior, estado novo, momento, responsável (`CLIENTE`, `ADMINISTRATIVO` com o id do usuário, ou `SISTEMA`) e motivo; a criação do pedido gera uma entrada inicial (de nulo para `CRIADO`, responsável `SISTEMA`), e o detalhe do pedido devolve o histórico em ordem cronológica. Testes: `pedido.aplicacao.TransicionarPedidoTests` e `pedido.web.PedidosDoClienteTests`.
 
 Devolução parcial ou total é a extensão opcional do enunciado e está fora do escopo desta versão das regras.

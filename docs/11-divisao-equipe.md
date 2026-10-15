@@ -57,7 +57,7 @@ Os contratos da onda 0 são os de [03-arquitetura.md](03-arquitetura.md): `Promo
 ## 4. Fluxo de trabalho
 
 - Cada integrante trabalha em branches próprias (por exemplo, `feature/promocoes-cupons`) e abre PR para `main`.
-- **Revisão cruzada rotativa:** Arthur revisa Amanda, Amanda revisa Mateus, Mateus revisa Lucas e Lucas revisa Arthur. Assim cada um conhece pelo menos dois módulos.
+- **Revisão:** Arthur, como dono do projeto, revisa e aprova todos os PRs antes do merge em `main`. Os PRs do Arthur são revisados por um colega em rodízio (Lucas, Amanda, Mateus), o que garante que cada integrante também conheça módulos além do seu.
 - Cada integrante commita o próprio trabalho com sua própria identidade Git. Pair programming é registrado com o trailer `Co-authored-by`.
 - Cada etapa segue o ciclo OpenSpec (propose, apply, archive) com o nome de change de [08-roadmap.md](08-roadmap.md).
 
@@ -68,4 +68,4 @@ Os contratos da onda 0 são os de [03-arquitetura.md](03-arquitetura.md): `Promo
 | Contratos da onda 0 mudarem depois | Fechar em reunião conjunta. Mudanças posteriores passam por PR revisado por todos. |
 | Promoções dependerem do carrinho real | Motor de promoções testado como domínio puro, com carrinho fake, até a onda 2 |
 | Checkout bloquear por falta de módulos | Arthur integra por interfaces, com stubs até os módulos ficarem prontos |
-| Alguém não dominar a arquitetura na defesa | Revisão cruzada e ensaio da onda 4, em que cada um explica um módulo que não é seu |
+| Alguém não dominar a arquitetura na defesa | Rodízio na revisão dos PRs do Arthur e ensaio da onda 4, em que cada um explica um módulo que não é seu |
