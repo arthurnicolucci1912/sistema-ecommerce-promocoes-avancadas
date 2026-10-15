@@ -18,9 +18,9 @@
 
 ## 3. Estoque: domínio, concorrência e Observer
 
-- [ ] 3.1 Implementar o saldo, `ReservarEstoque` (UPDATE condicional e tudo-ou-nada, D3), `EstoqueInsuficienteException` com `variacaoId` e `disponivel`, a liberação, a baixa e a reposição idempotentes (D4) e o ajuste administrativo. Verificar: testes de integração de "Reserva bem-sucedida", "Estoque insuficiente" (nenhum saldo alterado), "Liberar duas vezes", "Baixa", "Pedido sem reserva", reservar duas vezes para o mesmo pedido (rejeitado), "Ajuste que deixaria negativo" e "Entrada de mercadoria".
-- [ ] 3.2 Escrever o teste de concorrência "Dez pedidos pela última unidade", com 10 threads e uma barreira de início. Verificar: exatamente 1 sucesso e 9 `EstoqueInsuficienteException`, com saldo final de 0 disponível e 1 reservado. Repetir 3 vezes sem instabilidade.
-- [ ] 3.3 Implementar `OuvinteDeCatalogoDoEstoque` (`VariacaoCadastrada` cria saldo zero) e `OuvinteDePedidosDoEstoque` (D5, mapa de origem para ação, sem `switch`), com Javadoc de Observer. Verificar com testes de integração usando os serviços reais do `pedido`:
+- [x] 3.1 Implementar o saldo, `ReservarEstoque` (UPDATE condicional e tudo-ou-nada, D3), `EstoqueInsuficienteException` com `variacaoId` e `disponivel`, a liberação, a baixa e a reposição idempotentes (D4) e o ajuste administrativo. Verificar: testes de integração de "Reserva bem-sucedida", "Estoque insuficiente" (nenhum saldo alterado), "Liberar duas vezes", "Baixa", "Pedido sem reserva", reservar duas vezes para o mesmo pedido (rejeitado), "Ajuste que deixaria negativo" e "Entrada de mercadoria".
+- [x] 3.2 Escrever o teste de concorrência "Dez pedidos pela última unidade", com 10 threads e uma barreira de início. Verificar: exatamente 1 sucesso e 9 `EstoqueInsuficienteException`, com saldo final de 0 disponível e 1 reservado. Repetir 3 vezes sem instabilidade.
+- [x] 3.3 Implementar `OuvinteDeCatalogoDoEstoque` (`VariacaoCadastrada` cria saldo zero) e `OuvinteDePedidosDoEstoque` (D5, mapa de origem para ação, sem `switch`), com Javadoc de Observer. Verificar com testes de integração usando os serviços reais do `pedido`:
   - "Variação nova";
   - "Cancelamento antes do pagamento";
   - "Pagamento aprovado";
