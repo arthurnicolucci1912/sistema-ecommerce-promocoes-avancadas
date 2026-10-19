@@ -52,6 +52,15 @@ public class GerenciarCategorias {
     }
 
     /** Remove a categoria; com subcategorias ou produtos (ativos ou inativos) a remocao e rejeitada (409). */
+    /** Altera nome e pai na mesma transação: se uma das duas regras falhar, nada é gravado. */
+    public Categoria alterar(Long id, String novoNome, Long novoPaiId) {
+        Categoria categoria = alvo(id);
+        Categoria novoPai = novoPaiId == null ? null : paiInformado(novoPaiId);
+        categoria.renomear(novoNome, arvore());
+        categoria.mover(novoPai, arvore());
+        return categorias.salvar(categoria);
+    }
+
     public void remover(Long id) {
         Categoria categoria = alvo(id);
         if (!arvore().filhas(id).isEmpty()) {

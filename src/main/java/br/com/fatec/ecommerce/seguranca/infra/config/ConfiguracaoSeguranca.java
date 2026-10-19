@@ -55,6 +55,13 @@ public class ConfiguracaoSeguranca {
                         .hasAnyRole("ADMIN", "ESTOQUE")
                         .requestMatchers(HttpMethod.POST, "/api/admin/pedidos/*/cancelamento")
                         .hasAnyRole("ADMIN", "OPERADOR_COMERCIAL")
+                        // Vitrine do catalogo: leitura publica. Escrita em /api/catalogo/** cai em authenticated.
+                        .requestMatchers(HttpMethod.GET, "/api/catalogo/**").permitAll()
+                        // Catalogo administrativo e estoque: por area, antes da regra geral de /api/admin/**.
+                        .requestMatchers("/api/admin/categorias/**", "/api/admin/produtos/**",
+                                "/api/admin/combos/**")
+                        .hasAnyRole("ADMIN", "OPERADOR_COMERCIAL")
+                        .requestMatchers("/api/admin/estoque/**").hasAnyRole("ADMIN", "ESTOQUE")
                         // O restante da area administrativa (inclusive usuarios e pagamento simulado) e so do ADMIN.
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/clientes/me/**", "/api/clientes/me").hasRole("CLIENTE")
