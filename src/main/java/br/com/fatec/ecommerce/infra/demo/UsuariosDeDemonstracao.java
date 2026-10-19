@@ -1,11 +1,17 @@
 package br.com.fatec.ecommerce.infra.demo;
 
+import br.com.fatec.ecommerce.catalogo.dominio.ItemVendavel;
+import br.com.fatec.ecommerce.catalogo.dominio.ItemVendavelRepository;
+import br.com.fatec.ecommerce.catalogo.dominio.VariacaoProduto;
 import br.com.fatec.ecommerce.cliente.aplicacao.CadastrarCliente;
 import br.com.fatec.ecommerce.cliente.aplicacao.DadosDoEndereco;
 import br.com.fatec.ecommerce.cliente.aplicacao.GerenciarEnderecos;
 import br.com.fatec.ecommerce.cliente.dominio.ClienteRepository;
 import br.com.fatec.ecommerce.cliente.dominio.Endereco;
 import br.com.fatec.ecommerce.compartilhado.dominio.Dinheiro;
+import br.com.fatec.ecommerce.estoque.aplicacao.ReservarEstoque;
+import br.com.fatec.ecommerce.estoque.dominio.ComponenteAReservar;
+import br.com.fatec.ecommerce.estoque.dominio.EstoqueInsuficienteException;
 import br.com.fatec.ecommerce.pedido.aplicacao.ConfirmarReservaDoPedido;
 import br.com.fatec.ecommerce.pedido.aplicacao.CriarPedido;
 import br.com.fatec.ecommerce.pedido.dominio.DadosNovoPedido;
@@ -14,8 +20,11 @@ import br.com.fatec.ecommerce.pedido.dominio.PedidoRepository;
 import br.com.fatec.ecommerce.seguranca.dominio.Perfil;
 import br.com.fatec.ecommerce.seguranca.dominio.Usuario;
 import br.com.fatec.ecommerce.seguranca.dominio.UsuarioRepository;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -27,9 +36,10 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Garante, apenas no perfil {@code dev}, os usuarios de demonstracao (dados ficticios, senha {@value #SENHA}):
- * um por perfil administrativo e um cliente com endereco principal e um pedido de exemplo em
- * {@code AGUARDANDO_PAGAMENTO} (temporario, ate existir o checkout). Idempotente: so cria o que nao existe
+ * Garante, apenas no perfil {@code dev}, os dados de demonstracao (ficticios, senha {@value #SENHA}): os usuarios
+ * (um por perfil administrativo e um cliente com endereco principal), o catalogo e o estoque
+ * ({@link CatalogoDeDemonstracao}) e um pedido de exemplo em {@code AGUARDANDO_PAGAMENTO} (temporario, ate existir
+ * o checkout) com os SKUs reais do catalogo e o estoque reservado. Idempotente: so cria o que nao existe
  * (a chave e o e-mail; o pedido, a ausencia de pedidos do cliente), entao reiniciar a aplicacao nao duplica nada.
  *
  * <p>Fica em {@code infra.demo}, fora dos modulos, porque e composicao que cruza {@code seguranca} e
@@ -58,11 +68,15 @@ public class UsuariosDeDemonstracao implements ApplicationRunner {
     private final PedidoRepository pedidos;
     private final CriarPedido criarPedido;
     private final ConfirmarReservaDoPedido confirmarReserva;
+    private final ReservarEstoque reservarEstoque;
+    private final ItemVendavelRepository itens;
+    private final CatalogoDeDemonstracao catalogo;
     private final TransactionTemplate transacao;
 
     public UsuariosDeDemonstracao(UsuarioRepository usuarios, PasswordEncoder passwordEncoder,
             CadastrarCliente cadastrarCliente, GerenciarEnderecos enderecos, ClienteRepository clientes,
             PedidoRepository pedidos, CriarPedido criarPedido, ConfirmarReservaDoPedido confirmarReserva,
+            ReservarEstoque reservarEstoque, ItemVendavelRepository itens, CatalogoDeDemonstracao catalogo,
             PlatformTransactionManager gerenteDeTransacao) {
         this.usuarios = usuarios;
         this.passwordEncoder = passwordEncoder;
@@ -72,6 +86,9 @@ public class UsuariosDeDemonstracao implements ApplicationRunner {
         this.pedidos = pedidos;
         this.criarPedido = criarPedido;
         this.confirmarReserva = confirmarReserva;
+        this.reservarEstoque = reservarEstoque;
+        this.itens = itens;
+        this.catalogo = catalogo;
         this.transacao = new TransactionTemplate(gerenteDeTransacao);
     }
 
@@ -79,6 +96,7 @@ public class UsuariosDeDemonstracao implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         ADMINISTRATIVOS.forEach(this::criarAdministrativoSeNecessario);
         criarClienteSeNecessario();
+        catalogo.semear();
         criarPedidoDeExemploSeNecessario();
     }
 
@@ -120,26 +138,48 @@ public class UsuariosDeDemonstracao implements ApplicationRunner {
             LOG.warn("Pedido de demonstração não criado: {} não tem endereço ativo", EMAIL_CLIENTE);
             return;
         }
-        DadosNovoPedido dados = pedidoDeExemplo(clienteId, endereco);
-        transacao.executeWithoutResult(status -> {
-            Long pedidoId = criarPedido.executar(dados).getId();
-            confirmarReserva.executar(pedidoId);
-        });
-        LOG.info("Pedido de demonstração criado para {} (AGUARDANDO_PAGAMENTO)", EMAIL_CLIENTE);
+        try {
+            transacao.executeWithoutResult(status -> {
+                List<ComponenteAReservar> componentes = new ArrayList<>();
+                DadosNovoPedido dados = pedidoDeExemplo(clienteId, endereco, componentes);
+                Long pedidoId = criarPedido.executar(dados).getId();
+                reservarEstoque.para(pedidoId, componentes);
+                confirmarReserva.executar(pedidoId);
+            });
+            LOG.info("Pedido de demonstração criado para {} (AGUARDANDO_PAGAMENTO)", EMAIL_CLIENTE);
+        } catch (EstoqueInsuficienteException e) {
+            LOG.warn("Pedido de demonstração não criado: estoque insuficiente ({})", e.getMessage());
+        }
     }
 
-    /** 2 x Camiseta Basica (R$ 59,90) + 1 x Caneca (R$ 34,90) = R$ 154,70; frete R$ 18,50; total R$ 173,20. */
-    private static DadosNovoPedido pedidoDeExemplo(Long clienteId, Endereco endereco) {
-        List<DadosNovoPedido.Item> itens = List.of(
-                new DadosNovoPedido.Item("CAM-BAS-M", "Camiseta Básica", "Tamanho M", 2, Dinheiro.de("59.90")),
-                new DadosNovoPedido.Item("CAN-CER-300", "Caneca", "Cerâmica 300 ml", 1, Dinheiro.de("34.90")));
-        Dinheiro subtotal = itens.stream().map(i -> i.precoUnitario().multiplicar(i.quantidade()))
+    /**
+     * 2 x Camiseta Basica M + 1 x Caneca, com os precos do catalogo (R$ 59,90 e R$ 34,90: subtotal R$ 154,70); frete
+     * ficticio de R$ 18,50; total R$ 173,20. Preenche {@code componentes} com o estoque a reservar.
+     */
+    private DadosNovoPedido pedidoDeExemplo(Long clienteId, Endereco endereco, List<ComponenteAReservar> componentes) {
+        List<DadosNovoPedido.Item> lista = List.of(
+                item(CatalogoDeDemonstracao.SKU_CAMISETA_M, 2, componentes),
+                item(CatalogoDeDemonstracao.SKU_CANECA, 1, componentes));
+        Dinheiro subtotal = lista.stream().map(i -> i.precoUnitario().multiplicar(i.quantidade()))
                 .reduce(Dinheiro.zero(), Dinheiro::somar);
         Dinheiro frete = Dinheiro.de("18.50");
         EnderecoEntrega entrega = new EnderecoEntrega(endereco.getApelido(), endereco.getCep(),
                 endereco.getLogradouro(), endereco.getNumero(), endereco.getComplemento(), endereco.getBairro(),
                 endereco.getCidade(), endereco.getUf());
-        return new DadosNovoPedido(clienteId, entrega, itens, List.of(), frete, subtotal, Dinheiro.zero(),
+        return new DadosNovoPedido(clienteId, entrega, lista, List.of(), frete, subtotal, Dinheiro.zero(),
                 subtotal.somar(frete));
+    }
+
+    /** Item do snapshot a partir do catalogo (nome, variacao e preco do momento) e o estoque que ele consome. */
+    private DadosNovoPedido.Item item(String sku, int quantidade, List<ComponenteAReservar> componentes) {
+        ItemVendavel vendavel = itens.buscarPorSku(sku).orElseThrow();
+        vendavel.componentesDeEstoque(quantidade)
+                .forEach(c -> componentes.add(new ComponenteAReservar(c.variacaoId(), c.quantidade())));
+        VariacaoProduto variacao = (VariacaoProduto) vendavel;
+        // Ordem por nome do atributo: o mapa carregado do banco nao garante a ordem de insercao.
+        String descricao = new TreeMap<>(variacao.getAtributos()).entrySet().stream()
+                .map(e -> e.getKey() + ": " + e.getValue()).collect(Collectors.joining(", "));
+        return new DadosNovoPedido.Item(sku, variacao.getProduto().getNome(), descricao, quantidade,
+                variacao.preco());
     }
 }
