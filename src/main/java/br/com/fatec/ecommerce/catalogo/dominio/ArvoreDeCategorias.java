@@ -5,6 +5,7 @@ import br.com.fatec.ecommerce.compartilhado.dominio.RecursoNaoEncontradoExceptio
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -45,6 +46,13 @@ public final class ArvoreDeCategorias {
     }
 
     /** A propria categoria seguida dos seus ancestrais (e o que o catalogo informa de um item: "Camisetas, Roupas"). */
+    /** Subcategorias diretas do pai (as raizes, se o pai for nulo), ordenadas pelo nome. */
+    public List<Categoria> filhas(Long paiId) {
+        return filhasPorPai.getOrDefault(paiId, List.of()).stream()
+                .sorted(Comparator.comparing(Categoria::getNome, String.CASE_INSENSITIVE_ORDER))
+                .toList();
+    }
+
     public List<Categoria> categoriaEAncestrais(Long categoriaId) {
         List<Categoria> resultado = new ArrayList<>();
         resultado.add(buscar(categoriaId));

@@ -31,8 +31,8 @@
 
 ## 4. Catálogo: aplicação e consulta
 
-- [ ] 4.1 Implementar os casos de uso de administração do catálogo (categorias, produtos e variações, combos e inativação) e `ConsultarItensVendaveis` (D7). Verificar: testes de integração de "Criar subcategoria", "Ciclo na hierarquia", "Remover categoria em uso", "Produto com variações", "Novo tipo de característica", "Dados inválidos", "SKU duplicado" (inclusive SKU de variação contra SKU de combo), "Inativar produto", "Cadastrar combo", "Combo dentro de combo", "Combo circular", "Consultar variação por SKU" e "Consultar combo por SKU".
-- [ ] 4.2 Implementar a consulta pública: árvore, produtos com filtros e paginação, detalhe com disponibilidade (via `ConsultarSaldo`) e combos com disponibilidade. Verificar: testes de "Filtro por categoria inclui subcategorias" (sem token), "Filtro sem resultado", "Disponibilidade no detalhe", "Disponibilidade do combo" e "Produto inativo".
+- [x] 4.1 Implementar os casos de uso de administração do catálogo (categorias, produtos e variações, combos e inativação) e `ConsultarItensVendaveis` (D7). Verificar: testes de integração de "Criar subcategoria", "Ciclo na hierarquia", "Remover categoria em uso", "Produto com variações", "Novo tipo de característica", "Dados inválidos", "SKU duplicado" (inclusive SKU de variação contra SKU de combo), "Inativar produto", "Cadastrar combo", "Combo dentro de combo", "Combo circular", "Consultar variação por SKU" e "Consultar combo por SKU".
+- [x] 4.2 Implementar a consulta pública: árvore, produtos com filtros e paginação, detalhe com disponibilidade (via `ConsultarSaldo`) e combos com disponibilidade. Verificar: testes de "Filtro por categoria inclui subcategorias" (sem token), "Filtro sem resultado", "Disponibilidade no detalhe", "Disponibilidade do combo" e "Produto inativo".
 
 ## 5. API e segurança
 

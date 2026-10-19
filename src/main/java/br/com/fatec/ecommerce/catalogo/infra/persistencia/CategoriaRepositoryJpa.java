@@ -4,6 +4,7 @@ import br.com.fatec.ecommerce.catalogo.dominio.Categoria;
 import br.com.fatec.ecommerce.catalogo.dominio.CategoriaRepository;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Repository;
 
 /** Adaptador JPA da porta {@link CategoriaRepository}. */
@@ -18,7 +19,17 @@ class CategoriaRepositoryJpa implements CategoriaRepository {
 
     @Override
     public Categoria salvar(Categoria categoria) {
-        return jpa.saveAndFlush(categoria);
+        try {
+            return jpa.saveAndFlush(categoria);
+        } catch (DataIntegrityViolationException erro) {
+            throw ViolacoesDeUnicidade.deNomeDeCategoria(erro);
+        }
+    }
+
+    @Override
+    public void remover(Categoria categoria) {
+        jpa.delete(categoria);
+        jpa.flush();
     }
 
     @Override
