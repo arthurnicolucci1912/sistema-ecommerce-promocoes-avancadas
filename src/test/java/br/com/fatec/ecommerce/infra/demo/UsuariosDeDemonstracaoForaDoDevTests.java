@@ -41,4 +41,14 @@ class UsuariosDeDemonstracaoForaDoDevTests {
                 + "where c.nome = 'Cliente Demonstração'", Long.class);
         assertThat(total).isZero();
     }
+
+    @Test
+    void nenhumDadoDeCatalogoOuEstoqueDeDemonstracaoFoiSemeadoNaSubida() {
+        assertThat(contexto.getBeansOfType(CatalogoDeDemonstracao.class)).isEmpty();
+        assertThat(jdbc.queryForObject("select count(*) from item_vendavel", Long.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from produto", Long.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from categoria", Long.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from saldo_estoque", Long.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from reserva_estoque", Long.class)).isZero();
+    }
 }

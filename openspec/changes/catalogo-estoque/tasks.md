@@ -41,7 +41,7 @@
 
 ## 6. Demonstração
 
-- [ ] 6.1 Estender `UsuariosDeDemonstracao` (D8) com o catálogo, os combos e o estoque inicial, idempotentes por SKU, com o Teclado em 1 unidade. O pedido de exemplo passa a usar os SKUs reais e a reservar estoque pelo `ReservarEstoque`. Verificar: o teste no perfil `dev` executa o runner duas vezes sem duplicar e confirma a reserva do pedido demo; fora do `dev`, nada é semeado.
+- [x] 6.1 Estender `UsuariosDeDemonstracao` (D8) com o catálogo, os combos e o estoque inicial, idempotentes por SKU, com o Teclado em 1 unidade. O pedido de exemplo passa a usar os SKUs reais e a reservar estoque pelo `ReservarEstoque`. Verificar: o teste no perfil `dev` executa o runner duas vezes sem duplicar e confirma a reserva do pedido demo; fora do `dev`, nada é semeado.
 
 ## 7. Documentação
 
