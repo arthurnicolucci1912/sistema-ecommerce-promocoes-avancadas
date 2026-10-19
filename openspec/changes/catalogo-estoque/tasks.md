@@ -36,8 +36,8 @@
 
 ## 5. API e segurança
 
-- [ ] 5.1 Implementar os controllers e as regras de rota de D6, com `GET /api/catalogo/**` público, catálogo administrativo para `ADMIN` e `OPERADOR_COMERCIAL`, e estoque para `ADMIN` e `ESTOQUE`, sem abrir `/api/admin/usuarios` nem as rotas de pedidos. Verificar: testes de "Perfil de estoque altera catálogo", "Visitante altera catálogo", "Perfil comercial ajusta estoque" e "Estoque baixo", e de que as regras anteriores continuam valendo (todos os testes existentes passam).
-- [ ] 5.2 Adicionar regras ArchUnit: `estoque` não depende de `catalogo`, `catalogo` não depende de `pedido`, e `pedido` não depende de `estoque` nem de `catalogo`. Verificar: as regras passam e falham com uma violação temporária, que depois é removida.
+- [x] 5.1 Implementar os controllers e as regras de rota de D6, com `GET /api/catalogo/**` público, catálogo administrativo para `ADMIN` e `OPERADOR_COMERCIAL`, e estoque para `ADMIN` e `ESTOQUE`, sem abrir `/api/admin/usuarios` nem as rotas de pedidos. Verificar: testes de "Perfil de estoque altera catálogo", "Visitante altera catálogo", "Perfil comercial ajusta estoque" e "Estoque baixo", e de que as regras anteriores continuam valendo (todos os testes existentes passam).
+- [x] 5.2 Adicionar regras ArchUnit: `estoque` não depende de `catalogo`, `catalogo` não depende de `pedido`, e `pedido` não depende de `estoque` nem de `catalogo`. Verificar: as regras passam e falham com uma violação temporária, que depois é removida.
 
 ## 6. Demonstração
 

@@ -16,14 +16,15 @@ Este documento relaciona cada commit do repositório à change do OpenSpec e aos
 | 6 | `6d3d278` | 2026-10-15 | Arthur | `catalogo-estoque`: grupo 1 (migração V3) | Lucas | Arthur |
 | 7 | `b886317` | 2026-10-15 | Arthur | `catalogo-estoque`: grupo 2 (Composite de item vendável, categorias, evento `VariacaoCadastrada`) | Lucas | Arthur |
 | 8 | `0644210` | 2026-10-15 | Arthur | `catalogo-estoque`: grupo 3 (saldo e reserva atômica, movimentação idempotente, ouvintes de pedido e catálogo, teste de concorrência) e criação deste `commits.md` | Lucas | Arthur |
+| 9 | `ed0e394` | 2026-10-19 | Arthur | `catalogo-estoque`: grupo 4 (casos de uso de administração de categorias, produtos e combos; `ConsultarItensVendaveis`; consulta pública com filtros e disponibilidade) | Lucas | Arthur |
 
 ## Divergências entre o planejado e o realizado
 
 | Change | Responsável planejado | Situação |
 |---|---|---|
 | `estruturar-documentacao`, `fundacao-projeto`, `pedido-ciclo-vida` | Arthur | Feitas por Arthur, conforme o planejado |
-| `catalogo-estoque` (grupos 1 a 3) | Lucas | Feitos por Arthur (commits 5 a 8, autoria registrada corretamente) |
-| `catalogo-estoque` (grupos 4 a 8), `carrinho-compras`, `relatorios-gerenciais` | Lucas | Não iniciados |
+| `catalogo-estoque` (grupos 1 a 4) | Lucas | Feitos por Arthur (commits 5 a 9, autoria registrada corretamente) |
+| `catalogo-estoque` (grupos 5 a 8), `carrinho-compras`, `relatorios-gerenciais` | Lucas | Não iniciados |
 | `checkout` | Arthur | Não iniciado (depende de `carrinho-compras`) |
 | `promocoes-cupons`, auditoria | Amanda | Não iniciados |
 | `pagamento-idempotencia`, `entrega-frete`, eventos e notificações | Mateus | Não iniciados |

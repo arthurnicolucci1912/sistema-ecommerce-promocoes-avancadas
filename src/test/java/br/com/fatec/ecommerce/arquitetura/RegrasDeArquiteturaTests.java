@@ -71,6 +71,27 @@ class RegrasDeArquiteturaTests {
             .because("o compartilhado e a base de todos os modulos: a dependencia so vai dos modulos para ele");
 
     @ArchTest
+    static final ArchRule estoqueNaoDependeDoCatalogoExcetoOEventoDeVariacaoCadastrada = noClasses()
+            .that().resideInAPackage("br.com.fatec.ecommerce.estoque..")
+            .should().dependOnClassesThat(resideNoCatalogoForaDoPacoteDeEventos())
+            .because("o estoque guarda so o id da variacao e reage ao evento VariacaoCadastrada (Observer): a unica "
+                    + "dependencia permitida do catalogo e o pacote catalogo.dominio.evento");
+
+    @ArchTest
+    static final ArchRule catalogoNaoDependeDePedido = noClasses()
+            .that().resideInAPackage("br.com.fatec.ecommerce.catalogo..")
+            .should().dependOnClassesThat().resideInAPackage("br.com.fatec.ecommerce.pedido..")
+            .because("o catalogo nao conhece quem o consome: a dependencia vai do pedido para o contrato do catalogo");
+
+    @ArchTest
+    static final ArchRule pedidoNaoDependeDeEstoqueNemDeCatalogo = noClasses()
+            .that().resideInAPackage("br.com.fatec.ecommerce.pedido..")
+            .should().dependOnClassesThat().resideInAnyPackage(
+                    "br.com.fatec.ecommerce.estoque..",
+                    "br.com.fatec.ecommerce.catalogo..")
+            .because("o pedido so publica eventos; o estoque reage a eles e o catalogo e consultado por outras etapas");
+
+    @ArchTest
     static final ArchRule contratosDaOnda0SoTemImplementacaoNaInfra = noClasses()
             .that().areNotInterfaces()
             .and().resideOutsideOfPackage("..infra..")
@@ -89,6 +110,12 @@ class RegrasDeArquiteturaTests {
                     .as("%s deve ser uma interface", contrato.getSimpleName())
                     .isTrue();
         }
+    }
+
+    private static DescribedPredicate<JavaClass> resideNoCatalogoForaDoPacoteDeEventos() {
+        return JavaClass.Predicates.resideInAPackage("br.com.fatec.ecommerce.catalogo..")
+                .and(JavaClass.Predicates.resideOutsideOfPackage("br.com.fatec.ecommerce.catalogo.dominio.evento.."))
+                .as("residem no catalogo fora de catalogo.dominio.evento");
     }
 
     private static DescribedPredicate<JavaClass> assignaveisAoContrato() {

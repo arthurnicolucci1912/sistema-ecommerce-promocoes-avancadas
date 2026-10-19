@@ -60,6 +60,21 @@ public class GerenciarCombos {
         return itens.salvar(combo);
     }
 
+    /**
+     * Altera preço e/ou componentes na mesma transação ({@code null} mantém o valor atual): se uma das regras
+     * falhar, nada é gravado.
+     */
+    public Combo alterar(Long comboId, Dinheiro novoPreco, List<ComponenteDeCombo> componentes) {
+        if (novoPreco == null && componentes == null) {
+            throw new DadoInvalidoException("Informe o preço e/ou os componentes do combo.");
+        }
+        Combo combo = componentes == null ? combo(comboId) : substituirComponentes(comboId, componentes);
+        if (novoPreco != null) {
+            combo.alterarPreco(novoPreco);
+        }
+        return itens.salvar(combo);
+    }
+
     public void inativar(Long comboId) {
         Combo combo = combo(comboId);
         combo.inativar();
