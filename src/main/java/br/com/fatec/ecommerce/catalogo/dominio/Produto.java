@@ -4,6 +4,7 @@ import br.com.fatec.ecommerce.catalogo.dominio.evento.VariacaoCadastrada;
 import br.com.fatec.ecommerce.compartilhado.dominio.DadoInvalidoException;
 import br.com.fatec.ecommerce.compartilhado.dominio.Dinheiro;
 import br.com.fatec.ecommerce.compartilhado.dominio.EventoDominio;
+import br.com.fatec.ecommerce.compartilhado.dominio.RecursoNaoEncontradoException;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -23,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
+import org.hibernate.annotations.BatchSize;
 
 /**
  * Produto do catalogo: nome, descricao, marca opcional, exatamente uma categoria e as suas variacoes. Nao e um item
@@ -61,6 +63,7 @@ public class Produto {
     private Instant criadoEm;
 
     @OneToMany(mappedBy = "produto", cascade = CascadeType.ALL)
+    @BatchSize(size = 50)
     @OrderBy("id ASC")
     private List<VariacaoProduto> variacoes = new ArrayList<>();
 
@@ -113,6 +116,27 @@ public class Produto {
     }
 
     /** Inativa o produto e todas as suas variacoes (nada e excluido). */
+    public void alterarDados(String novoNome, String novaDescricao, String novaMarca, Categoria novaCategoria) {
+        if (novoNome == null || novoNome.isBlank()) {
+            throw new DadoInvalidoException("O nome do produto é obrigatório.");
+        }
+        if (novaCategoria == null) {
+            throw new DadoInvalidoException("A categoria do produto é obrigatória.");
+        }
+        this.nome = novoNome.trim();
+        this.descricao = vazioParaNulo(novaDescricao);
+        this.marca = vazioParaNulo(novaMarca);
+        this.categoria = novaCategoria;
+    }
+
+    /** A variacao deste produto com o id dado; 404 se o id nao for de uma variacao deste produto. */
+    public VariacaoProduto variacaoPorId(Long variacaoId) {
+        return variacoes.stream()
+                .filter(v -> v.getId() != null && v.getId().equals(variacaoId))
+                .findFirst()
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Variação não encontrada."));
+    }
+
     public void inativar() {
         this.ativo = false;
         variacoes.forEach(VariacaoProduto::inativar);

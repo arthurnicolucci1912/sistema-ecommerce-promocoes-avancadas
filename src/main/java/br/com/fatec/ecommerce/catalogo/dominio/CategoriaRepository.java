@@ -10,6 +10,9 @@ public interface CategoriaRepository {
 
     Optional<Categoria> buscarPorId(Long id);
 
+    /** Remove a categoria e faz flush imediato. */
+    void remover(Categoria categoria);
+
     /** Todas as categorias, a entrada de {@link ArvoreDeCategorias}. */
     List<Categoria> listarTodas();
 }

@@ -16,8 +16,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.hibernate.annotations.Fetch;
-import org.hibernate.annotations.FetchMode;
+import org.hibernate.annotations.BatchSize;
 
 /**
  * Conjunto vendido com SKU e preco proprios, composto por itens vendaveis (variacoes ou outros combos) com
@@ -37,7 +36,7 @@ public class Combo extends ItemVendavel {
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @JoinColumn(name = "combo_id", nullable = false, updatable = false)
-    @Fetch(FetchMode.SUBSELECT)
+    @BatchSize(size = 50)
     @OrderBy("id ASC")
     private List<ItemCombo> itens = new ArrayList<>();
 
@@ -68,6 +67,11 @@ public class Combo extends ItemVendavel {
     }
 
     /** Combo vendavel: ativo, com componentes, e todos eles disponiveis (recursivamente). */
+    /** Remove todos os componentes, para substitui-los por uma nova lista (o chamador grava antes de adicionar). */
+    public void removerItens() {
+        itens.clear();
+    }
+
     @Override
     public boolean estaDisponivelParaVenda() {
         return isAtivo() && !itens.isEmpty()

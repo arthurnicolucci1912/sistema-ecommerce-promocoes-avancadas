@@ -14,6 +14,7 @@ import jakarta.persistence.InheritanceType;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Item que o catalogo vende: uma variacao de produto ou um combo, tratados de forma uniforme por quem consome
@@ -96,6 +97,16 @@ public abstract class ItemVendavel {
      * Se este item e {@code alvo} ou o contem, direta ou indiretamente. A folha so "contem" a si mesma; o composto
      * acrescenta os seus componentes. Serve a validacao de combo circular sem inspecionar o tipo dos filhos.
      */
+    /**
+     * Ids das categorias a que o item pertence diretamente (sem os ancestrais, que a arvore de categorias calcula).
+     * Por padrao e vazio: o item nao pertence a categoria nenhuma e quem o consome nao precisa tratar isso. A
+     * variacao devolve a categoria do produto; o combo nao tem categoria propria (nao herda a dos componentes), pois
+     * tem preco proprio e e enderecado pelo SKU.
+     */
+    public Set<Long> categoriaIdsDiretas() {
+        return Set.of();
+    }
+
     public boolean contemOuE(ItemVendavel alvo) {
         return mesmoItemQue(alvo);
     }

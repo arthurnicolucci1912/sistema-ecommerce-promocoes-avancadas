@@ -15,6 +15,8 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import org.hibernate.annotations.BatchSize;
 
 /**
  * Variacao de um {@link Produto} (por exemplo, camiseta M azul): tem SKU, preco, atributos nome/valor e situacao.
@@ -34,6 +36,7 @@ public class VariacaoProduto extends ItemVendavel {
     private Produto produto;
 
     @ElementCollection(fetch = FetchType.EAGER)
+    @BatchSize(size = 50)
     @CollectionTable(name = "variacao_atributo", joinColumns = @JoinColumn(name = "variacao_id"))
     @MapKeyColumn(name = "nome", length = 100)
     @Column(name = "valor", nullable = false)
@@ -59,6 +62,11 @@ public class VariacaoProduto extends ItemVendavel {
     public List<ComponenteEstoque> componentesDeEstoque(int quantidade) {
         exigirQuantidadePositiva(quantidade);
         return List.of(new ComponenteEstoque(getId(), quantidade));
+    }
+
+    @Override
+    public Set<Long> categoriaIdsDiretas() {
+        return Set.of(produto.getCategoria().getId());
     }
 
     public Produto getProduto() {
