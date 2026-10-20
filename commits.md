@@ -19,14 +19,15 @@ Este documento relaciona cada commit do repositório à change do OpenSpec e aos
 | 9 | `ed0e394` | 2026-10-19 | Arthur | `catalogo-estoque`: grupo 4 (casos de uso de administração de categorias, produtos e combos; `ConsultarItensVendaveis`; consulta pública com filtros e disponibilidade) | Lucas | Arthur |
 | 10 | `8bd996d` | 2026-10-19 | Arthur | `catalogo-estoque`: grupo 5 (API pública e administrativa do catálogo e do estoque, regras de rota por perfil, regras ArchUnit entre `estoque`, `catalogo` e `pedido`) | Lucas | Arthur |
 | 11 | `a5a6f87` | 2026-10-19 | Arthur | `catalogo-estoque`: grupo 6 (carga de demonstração de catálogo, combo e estoque no perfil `dev`; pedido demo com reserva de estoque) | Lucas | Arthur |
+| 12 | `e0a95a5` | 2026-10-19 | Arthur | `catalogo-estoque`: grupo 7 (documentação de catálogo, estoque, Composite e Observer; registro da divisão real em `docs/11` e no board; ajustes de Javadoc e `openspec/config.yaml`) | Lucas | Arthur |
 
 ## Divergências entre o planejado e o realizado
 
 | Change | Responsável planejado | Situação |
 |---|---|---|
 | `estruturar-documentacao`, `fundacao-projeto`, `pedido-ciclo-vida` | Arthur | Feitas por Arthur, conforme o planejado |
-| `catalogo-estoque` (grupos 1 a 6) | Lucas | Feitos por Arthur (commits 5 a 11, autoria registrada corretamente) |
-| `catalogo-estoque` (grupos 7 e 8), `carrinho-compras`, `relatorios-gerenciais` | Lucas | Não iniciados |
+| `catalogo-estoque` (grupos 1 a 7) | Lucas | Feitos por Arthur (commits 5 a 12, autoria registrada corretamente) |
+| `catalogo-estoque` (grupo 8), `carrinho-compras`, `relatorios-gerenciais` | Lucas | Não iniciados |
 | `checkout` | Arthur | Não iniciado (depende de `carrinho-compras`) |
 | `promocoes-cupons`, auditoria | Amanda | Não iniciados |
 | `pagamento-idempotencia`, `entrega-frete`, eventos e notificações | Mateus | Não iniciados |

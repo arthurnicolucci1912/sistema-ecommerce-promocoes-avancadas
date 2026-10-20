@@ -13,7 +13,7 @@
 
 | A fazer | Em andamento | Em revisão | Feito |
 |---|---|---|---|
-| `carrinho-compras` (Lucas) | | `catalogo-estoque`: implementado por Arthur (atribuição original: Lucas) | `fundacao-projeto` (Arthur), arquivada em 2026-10-14 |
+| `carrinho-compras` (Lucas) | | | `fundacao-projeto` (Arthur), arquivada em 2026-10-14; `catalogo-estoque`: implementado por Arthur (atribuição original: Lucas), arquivada em 2026-10-19 |
 | `checkout` (Arthur) | | | `estruturar-documentacao` (Arthur), arquivada em 2026-10-14 |
 | `promocoes-cupons` (Amanda) | | | `pedido-ciclo-vida` (Arthur), arquivada em 2026-10-14 |
 | `pagamento-idempotencia` (Mateus) | | | |
@@ -23,7 +23,7 @@
 | `relatorios-gerenciais` (Lucas) | | | |
 | Reunião da onda 0: fechar contratos (todos) | | | |
 
-A ordem sequencial de execução das changes, com as dependências, está em [08-roadmap.md](08-roadmap.md) (seção 7). A etapa 4 do roadmap foi dividida em `pedido-ciclo-vida` (arquivada) e `checkout` (depois de `carrinho-compras`). A `catalogo-estoque` está em revisão até a verificação final e o arquivamento.
+A ordem sequencial de execução das changes, com as dependências, está em [08-roadmap.md](08-roadmap.md) (seção 7). A etapa 4 do roadmap foi dividida em `pedido-ciclo-vida` (arquivada) e `checkout` (depois de `carrinho-compras`). A `catalogo-estoque` foi verificada e arquivada em 2026-10-19.
 
 ## Cartões por integrante
 
@@ -38,7 +38,7 @@ A ordem sequencial de execução das changes, com as dependências, está em [08
 ### Lucas Gomes
 | Cartão | Coluna | Depende de | Entregas | Patterns |
 |---|---|---|---|---|
-| `catalogo-estoque` | Em revisão: **implementado por Arthur (atribuição original: Lucas)** | `fundacao-projeto` | Produtos, variações, categorias em árvore, combos, saldo e reserva de estoque, concorrência na última unidade, ouvintes dos eventos do pedido e do catálogo | Composite (combos), Observer (ouvintes do estoque) |
+| `catalogo-estoque` | Feito (arquivada em 2026-10-19): **implementado por Arthur (atribuição original: Lucas)** | `fundacao-projeto` | Produtos, variações, categorias em árvore, combos, saldo e reserva de estoque, concorrência na última unidade, ouvintes dos eventos do pedido e do catálogo | Composite (combos), Observer (ouvintes do estoque) |
 | `carrinho-compras` | A fazer | `catalogo-estoque` | Carrinho, recálculo, primeiras etapas do pipeline de preço | Chain of Responsibility |
 | `relatorios-gerenciais` | A fazer | `checkout`, `promocoes-cupons` | Vendas, ticket médio, mais vendidos, desconto por campanha | nenhum |
 
@@ -63,7 +63,7 @@ A atribuição original (colunas acima e [11-divisao-equipe.md](11-divisao-equip
 |---|---|---|
 | `fundacao-projeto` | Arthur | Arthur (conforme planejado) |
 | `pedido-ciclo-vida` | Arthur | Arthur (conforme planejado) |
-| `catalogo-estoque` | Lucas | Arthur (atribuição original: Lucas); em revisão |
+| `catalogo-estoque` | Lucas | Arthur (atribuição original: Lucas); arquivada em 2026-10-19 |
 
 As demais changes não foram iniciadas.
 
