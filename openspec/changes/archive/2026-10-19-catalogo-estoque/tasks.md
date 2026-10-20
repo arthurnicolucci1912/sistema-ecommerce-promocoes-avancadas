@@ -59,7 +59,7 @@
 
 ## 8. Verificação final
 
-- [ ] 8.1 Rodar `./mvnw verify` (todos os testes, incluindo os de arquitetura) e o roteiro manual no perfil `dev`:
+- [x] 8.1 Rodar `./mvnw verify` (todos os testes, incluindo os de arquitetura) e o roteiro manual no perfil `dev`:
   - consultar `/api/catalogo/produtos?categoriaId=<Roupas>` sem token;
   - como `estoque@demo.local`, ajustar estoque e listar o estoque baixo;
   - simular a aprovação do pedido demo e conferir a baixa;
