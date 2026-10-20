@@ -4,7 +4,7 @@
 >
 > **Etapas do roadmap relacionadas:** 2 (catálogo e estoque, combos), 3 (carrinho, pipeline de preço), 4 (checkout e pedido, State, Facade), 5 (promoções e cupons: Strategy, Composite de condições, Factory Method), 6 (pagamento e idempotência: Adapter), 7 (entrega e frete), 8 (eventos, notificações e auditoria: Observer). Ver [08-roadmap.md](08-roadmap.md).
 >
-> **Status:** parcialmente `implementado`. State (3.4) está **implementado** na E4 (change `pedido-ciclo-vida`) e o lado publicador do Observer (3.6) também; os ouvintes chegam nas etapas de estoque, pagamento, notificação e auditoria. Na E1 foram criados apenas os **contratos** (interfaces e `record`s) dos itens 3.1, 3.2, 3.3, 3.5 e 3.6, com status `contrato definido (E1)`; os patterns 3.1, 3.2, 3.3 e 3.5 não têm implementação ainda. Os nomes de classes concretas dos demais itens são preliminares e serão refinados em cada change de implementação. Um pattern que, na implementação, não se sustentar por um requisito concreto será removido deste documento (o enunciado penaliza padrões introduzidos artificialmente).
+> **Status:** parcialmente `implementado`. State (3.4) está **implementado** na E4 (change `pedido-ciclo-vida`). O Composite de combos (3.8) está **implementado** na E2 (change `catalogo-estoque`). O Observer (3.6) tem implementados o lado publicador do pedido (E4), o publicador do catálogo e os ouvintes do estoque (E2); os ouvintes de pagamento, notificação e auditoria chegam nas etapas 6 e 8. Na E1 foram criados apenas os **contratos** (interfaces e `record`s) dos itens 3.1, 3.2, 3.3, 3.5 e 3.6, com status `contrato definido (E1)`; os patterns 3.1, 3.2, 3.3 e 3.5 não têm implementação ainda. Os nomes de classes concretas dos demais itens são preliminares e serão refinados em cada change de implementação. Um pattern que, na implementação, não se sustentar por um requisito concreto será removido deste documento (o enunciado penaliza padrões introduzidos artificialmente).
 
 Documentos relacionados: [01-requisitos.md](01-requisitos.md), [02-modelo-dominio.md](02-modelo-dominio.md), [03-arquitetura.md](03-arquitetura.md), [05-regras-negocio.md](05-regras-negocio.md), [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md).
 
@@ -25,10 +25,10 @@ São 9 pontos de aplicação, que usam **8 patterns distintos** (o Composite apa
 | 5 | Gateways de pagamento heterogêneos | Adapter | Estrutural | Pagamentos |
 | 6 | Reação a eventos (pagamento confirmado etc.) | Observer (eventos de domínio) | Comportamental | Eventos do sistema; Notificações |
 | 7 | Criação de promoções a partir da configuração | Factory Method / registry | Criação | Administração das promoções |
-| 8 | Produto simples vs. combo/kit | Composite | Estrutural | Carrinho de compras; Catálogo de produtos |
+| 8 | Item vendável: variação simples vs. combo/kit | Composite | Estrutural | Carrinho de compras; Catálogo de produtos |
 | 9 | Orquestração do checkout | Facade | Estrutural | Checkout |
 
-Situação dos pontos de aplicação: o #4 (State) está `implementado` (E4) e o #6 (Observer) tem o publicador e os eventos do pedido `implementados` (E4), com ouvintes nas etapas seguintes; os demais estão como contrato (E1) ou `proposto`.
+Situação dos pontos de aplicação: o #4 (State) está `implementado` (E4); o #6 (Observer) tem `implementados` o publicador e os eventos do pedido (E4), o publicador do catálogo (`VariacaoCadastrada`) e os ouvintes do estoque (E2), com os demais ouvintes nas etapas seguintes; o #8 (Composite de combos) está `implementado` (E2); os demais estão como contrato (E1) ou `proposto`. As categorias do catálogo são uma árvore simples e **não** são um ponto de aplicação de pattern (ver 3.8).
 
 Contagem por categoria (patterns distintos):
 
@@ -39,7 +39,7 @@ Contagem por categoria (patterns distintos):
 | Comportamental | Strategy, Chain of Responsibility, State, Observer | 4 | pelo menos 2 |
 | **Total** | | **8** | pelo menos 6 |
 
-O mínimo de 6 patterns, de mais de uma categoria, com pelo menos 2 comportamentais e 1 de criação, é atendido mesmo contando patterns distintos. Se algum item for cortado na implementação, a ordem de corte sugerida é Facade (se virar apenas repasse de chamadas), depois o Composite de combos (se o escopo de combos for reduzido).
+O mínimo de 6 patterns, de mais de uma categoria, com pelo menos 2 comportamentais e 1 de criação, é atendido mesmo contando patterns distintos. Se algum item for cortado na implementação, a ordem de corte sugerida é Facade (se virar apenas repasse de chamadas). O Composite de combos já está implementado (E2) e sustenta a contagem; o Observer também tem ouvintes reais do estoque (E2).
 
 ---
 
@@ -292,26 +292,36 @@ classDiagram
 **Por que este pattern.** Quem confirma o pagamento publica um evento de domínio (`PagamentoConfirmado`) e não sabe quem reage. Cada interessado é um observador independente. No Spring, a infraestrutura é o `ApplicationEventPublisher` com `@EventListener` (reações que devem estar na mesma transação, como a baixa de estoque) e `@TransactionalEventListener` após o commit (notificação, auditoria).
 - *Alternativa descartada:* chamadas diretas a cada componente a partir do serviço de pedido; broker de mensagens externo (excesso para o porte do trabalho).
 
-**Classes participantes.** O lado publicador do pedido está `implementado` (E4); os ouvintes são das etapas seguintes.
+**Classes participantes.** O lado publicador do pedido (E4), o publicador do catálogo e os ouvintes do estoque (E2) estão `implementado`; os ouvintes de pagamento, notificação e auditoria são das etapas seguintes.
 
 | Papel | Classe |
 |---|---|
 | Evento (contrato) | `EventoDominio` (`compartilhado.dominio`) |
 | Eventos do pedido (`implementado`, E4; `pedido.dominio.evento`) | `PedidoCriado`, `PedidoPago`, `PedidoPagamentoRecusado`, `PedidoEmPreparacao`, `PedidoEnviado`, `PedidoEntregue`, `PedidoCancelado`. Todos são `record`s que carregam `pedidoId`, `clienteId`, `de`, `para` e `ocorridoEm`; o `PedidoCancelado` carrega também `responsavel` e `motivo`. |
+| Evento do catálogo (`implementado`, E2; `catalogo.dominio.evento`) | `VariacaoCadastrada` (`record` com `variacaoId`, `sku` e `ocorridoEm`), publicado a cada variação cadastrada |
 | Eventos do pagamento (etapa 6, preliminares) | `PagamentoConfirmado`, `PagamentoRecusado` (módulo `pagamento`; distintos de `PedidoPago` e `PedidoPagamentoRecusado`, que são o aviso do pedido sobre a própria mudança de estado) |
-| Subject/publicador | `ConfirmarReservaDoPedido` e `TransicionarPedido` (`pedido.aplicacao`), que publicam pelo `PublicadorEventos` depois de salvar o pedido |
-| Observers | `EstoqueListener` (baixa e liberação), `NotificacaoListener`, `AuditoriaListener` (etapas 6 e 8; nenhum existe ainda) |
+| Subject/publicador | `ConfirmarReservaDoPedido` e `TransicionarPedido` (`pedido.aplicacao`), que publicam pelo `PublicadorEventos` depois de salvar o pedido; `CadastrarVariacao` (`catalogo.aplicacao`), que publica os eventos que o `Produto` acumulou (`consumirEventos()`) depois de salvar |
+| Observers do estoque (`implementado`, E2; `estoque.aplicacao`) | `OuvinteDePedidosDoEstoque` (ouve `PedidoPago`, `PedidoPagamentoRecusado` e `PedidoCancelado`) e `OuvinteDeCatalogoDoEstoque` (ouve `VariacaoCadastrada`) |
+| Observers futuros | `NotificacaoListener`, `AuditoriaListener` (etapas 6 e 8; nenhum existe ainda) |
 | Canais de notificação (contrato) | `CanalNotificacao`, com `EmailSimulado` e `SmsSimulado` (etapa 8) |
 
-**Como o pedido anuncia os eventos.** Cada estado decide o que anuncia ao ser alcançado, por `EstadoPedido.eventoDeChegada(DadosDaTransicao)`: `AguardandoPagamento` anuncia `PedidoCriado` (efeito de T1: o pedido só é anunciado depois da reserva), `Pago` anuncia `PedidoPago`, `PagamentoRecusado` anuncia `PedidoPagamentoRecusado`, `EmPreparacao` anuncia `PedidoEmPreparacao`, `Enviado` anuncia `PedidoEnviado`, `Entregue` anuncia `PedidoEntregue` e `Cancelado` anuncia `PedidoCancelado`. `Criado` (estado inicial) não anuncia nada. O `Pedido` acumula os eventos de cada transição aplicada (`consumirEventos()`), e o serviço de aplicação os publica depois de salvar, na mesma transação; uma transição rejeitada não salva nem publica. O campo `de` permite ao ouvinte futuro decidir o efeito (o estoque libera a reserva se o cancelamento vem de `AGUARDANDO_PAGAMENTO` e repõe a baixa se vem de `PAGO` ou `EM_PREPARACAO`; o pagamento estorna).
+**Como o pedido anuncia os eventos.** Cada estado decide o que anuncia ao ser alcançado, por `EstadoPedido.eventoDeChegada(DadosDaTransicao)`: `AguardandoPagamento` anuncia `PedidoCriado` (efeito de T1: o pedido só é anunciado depois da reserva), `Pago` anuncia `PedidoPago`, `PagamentoRecusado` anuncia `PedidoPagamentoRecusado`, `EmPreparacao` anuncia `PedidoEmPreparacao`, `Enviado` anuncia `PedidoEnviado`, `Entregue` anuncia `PedidoEntregue` e `Cancelado` anuncia `PedidoCancelado`. `Criado` (estado inicial) não anuncia nada. O `Pedido` acumula os eventos de cada transição aplicada (`consumirEventos()`), e o serviço de aplicação os publica depois de salvar, na mesma transação; uma transição rejeitada não salva nem publica. O campo `de` permite ao ouvinte decidir o efeito (o estoque, implementado na E2, libera a reserva se o cancelamento vem de `AGUARDANDO_PAGAMENTO` e repõe a baixa se vem de `PAGO` ou `EM_PREPARACAO`; o pagamento estornará na etapa 6).
 
-**Testes.** `pedido.aplicacao.OuvinteDeCancelamentoTests` registra um `@EventListener` só no teste, sem alterar o módulo `pedido`, e comprova que um novo interessado recebe `PedidoCancelado` com `de = PAGO` e que nada é publicado quando a transição é rejeitada (estado ou perfil). `pedido.dominio.evento.EventosDoPedidoTests` cobre o evento de cada transição válida e `pedido.aplicacao.CriarPedidoTests` a publicação de `PedidoCriado`.
+**Ouvintes do estoque (`implementado`, E2, change `catalogo-estoque`).** Pacote `br.com.fatec.ecommerce.estoque.aplicacao`.
 
-**O que ficou mais fácil de modificar.** Novo interessado (por exemplo, enviar o pedido a um sistema de fidelidade) = novo listener. Novo canal de comunicação (WhatsApp) = nova implementação de `CanalNotificacao`. O módulo de pedidos não importa nenhuma tecnologia de notificação.
+- *Problema real.* O pagamento aprovado, o pagamento recusado e o cancelamento precisam baixar, liberar ou repor o estoque; se o `Pedido` (ou o serviço de transição) chamasse o estoque, o módulo `pedido` passaria a conhecer o `estoque` e mudaria a cada efeito novo. Do outro lado, toda variação cadastrada precisa ganhar saldo sem o `estoque` consultar o `catalogo`.
+- `OuvinteDePedidosDoEstoque`: três métodos `@EventListener` (`ao(PedidoPago)` baixa; `ao(PedidoPagamentoRecusado)` libera; `ao(PedidoCancelado)` escolhe a ação pelo estado de origem `de`). A escolha do cancelamento é um **mapa situação de origem para ação** (`AGUARDANDO_PAGAMENTO` libera; `PAGO` e `EM_PREPARACAO` repõem), sem `switch`; origens fora do mapa (por exemplo `CRIADO` e `PAGAMENTO_RECUSADO`) não têm efeito. As ações são as operações idempotentes de `MovimentarReservas` (`liberar`, `baixar`, `repor`): repetir o evento ou receber um pedido sem reserva não altera o saldo nem lança erro.
+- `OuvinteDeCatalogoDoEstoque`: `ao(VariacaoCadastrada)` cria o saldo zero da variação (`criarSeAusente`, idempotente), usando só o id da variação.
+- **Síncrono, na mesma transação.** Os ouvintes usam `@EventListener`, não `@TransactionalEventListener`: rodam na transação de quem publicou, então o pedido e o estoque nunca divergem (cancelar e repor, ou aprovar e baixar, acontecem juntos ou nenhum acontece). *Alternativa descartada:* `@TransactionalEventListener(AFTER_COMMIT)`, porque uma falha depois do commit deixaria o pedido cancelado com a reserva presa. *Trade-off aceito:* uma falha no estoque desfaz a transição do pedido, que é o comportamento desejado (consistência antes de disponibilidade).
+- **Dependências (ArchUnit):** o `estoque` depende só dos pacotes de evento (`pedido.dominio.evento`, mais `SituacaoPedido` para o mapa, e `catalogo.dominio.evento`); o `pedido` não conhece o `estoque`, e o `catalogo` não conhece os ouvintes (só consulta o saldo por `ConsultarSaldo`, no sentido permitido `catalogo` para `estoque`); ver [03-arquitetura.md](03-arquitetura.md), seção 3.
 
-**Contratos já criados na E1.** `EventoDominio` (`compartilhado.dominio`, com `Instant ocorridoEm()`) e `PublicadorEventos` (`compartilhado.dominio`, com `void publicar(EventoDominio evento)`). O adaptador `PublicadorEventosSpring` (`compartilhado.infra`) delega ao `ApplicationEventPublisher`; é a **única implementação concreta** de contrato existente na E1, e há um teste de integração em que um evento publicado chega a um `@EventListener` (`PublicadorEventosSpringTests`). Os eventos do pedido passaram a existir na E4 (ver acima); os eventos de pagamento (`PagamentoConfirmado`, `PagamentoRecusado`), os listeners e os canais ainda não existem. `CanalNotificacao` e `Notificacao` (`notificacao.dominio`) estão descritos em 3.5.
+**Testes.** `estoque.aplicacao.OuvintesDoEstoqueTests` usa os serviços reais do pedido (`CriarPedido`, `ConfirmarReservaDoPedido`, `TransicionarPedido`) e cobre: variação nova ganha saldo zero; ouvinte de catálogo não altera saldo existente; cancelamento antes do pagamento libera; pagamento aprovado baixa; cancelamento depois do pagamento (e em preparação) repõe; pagamento recusado libera; transição rejeitada não altera o estoque; pedido sem reserva não quebra a transição. `catalogo.aplicacao.CadastrarVariacaoTests` e `catalogo.dominio.VariacaoCadastradaTests` cobrem o publicador (o evento sai com o id da variação gravada e não sai se o SKU é duplicado). **Extensibilidade:** nenhum arquivo do módulo `pedido` (código ou testes) foi alterado pela change `catalogo-estoque` (`git diff` do módulo `pedido` desde o commit anterior à change é vazio); os efeitos de estoque entraram apenas como ouvintes. `pedido.aplicacao.OuvinteDeCancelamentoTests` registra um `@EventListener` só no teste, sem alterar o módulo `pedido`, e comprova que um novo interessado recebe `PedidoCancelado` com `de = PAGO` e que nada é publicado quando a transição é rejeitada (estado ou perfil). `pedido.dominio.evento.EventosDoPedidoTests` cobre o evento de cada transição válida e `pedido.aplicacao.CriarPedidoTests` a publicação de `PedidoCriado`.
 
-**Status:** publicador e eventos do pedido implementados (E4, change `pedido-ciclo-vida`); ouvintes nas etapas de estoque, pagamento e notificação (e auditoria na E8). Eventos de pagamento nas E6 e E8.
+**O que ficou mais fácil de modificar.** Novo interessado (por exemplo, enviar o pedido a um sistema de fidelidade) = novo listener. Novo efeito de estoque (por exemplo, reagir a `PedidoEnviado`) = novo método ouvinte em `OuvinteDePedidosDoEstoque` ou uma nova entrada no mapa de origens, sem tocar o `pedido` nem o `catalogo`. Novo canal de comunicação (WhatsApp) = nova implementação de `CanalNotificacao`. O módulo de pedidos não importa nenhuma tecnologia de notificação nem o estoque.
+
+**Contratos já criados na E1.** `EventoDominio` (`compartilhado.dominio`, com `Instant ocorridoEm()`) e `PublicadorEventos` (`compartilhado.dominio`, com `void publicar(EventoDominio evento)`). O adaptador `PublicadorEventosSpring` (`compartilhado.infra`) delega ao `ApplicationEventPublisher`; é a **única implementação concreta** de contrato existente na E1, e há um teste de integração em que um evento publicado chega a um `@EventListener` (`PublicadorEventosSpringTests`). Os eventos do pedido passaram a existir na E4 (ver acima); `VariacaoCadastrada` e os ouvintes do estoque, na E2; os eventos de pagamento (`PagamentoConfirmado`, `PagamentoRecusado`), os listeners de notificação e auditoria e os canais ainda não existem. `CanalNotificacao` e `Notificacao` (`notificacao.dominio`) estão descritos em 3.5.
+
+**Status:** publicador e eventos do pedido implementados (E4, change `pedido-ciclo-vida`); publicador do catálogo (`VariacaoCadastrada`) e ouvintes do estoque implementados (E2, change `catalogo-estoque`); ouvintes de pagamento e notificação nas etapas seguintes (e auditoria na E8). Eventos de pagamento nas E6 e E8.
 
 
 ---
@@ -341,28 +351,75 @@ classDiagram
 
 ---
 
-### 3.8 Composite: produto simples vs. combo/kit
+### 3.8 Composite: item vendável (variação simples vs. combo/kit)
 
 **Requisito de origem.** Seção *Carrinho de compras*: "a equipe poderá também representar conjuntos de produtos comercializados como combos ou kits". Seção *Catálogo*: acrescentar novos tipos de produto "sem exigir mudanças excessivas no código existente".
 
-**Problema.** O carrinho, o preço e o estoque precisam tratar da mesma forma um item único e um combo composto por vários itens. Sem uma abstração comum, cada ponto teria `if (ehCombo)`.
+**Problema.** O carrinho, o preço e o estoque precisam tratar da mesma forma um item único e um combo composto por vários itens (que pode conter outros combos). Sem uma abstração comum, cada ponto teria `if (ehCombo)`.
 
-**Por que este pattern.** Produto simples (folha) e combo (composto, que contém outros itens vendáveis) compartilham um contrato; o combo delega aos filhos (preço, peso, itens para baixa de estoque). Um combo pode conter outro combo.
-- *Alternativa descartada:* flag `ehCombo` e lista de componentes dentro de `Produto`, com condicionais em carrinho, preço e estoque.
-- *Escopo:* combos são opcionais no enunciado ("poderá"); se forem cortados, este item sai do documento e o total continua acima do mínimo de 6.
+**Por que este pattern.** A variação de produto (folha) e o combo (composto, que contém outros itens vendáveis) compartilham um contrato; o combo delega aos filhos. Quem consome o catálogo recebe um `ItemVendavel` e chama `preco()`, `estaDisponivelParaVenda()` e `componentesDeEstoque(quantidade)` sem saber o tipo.
+- *Alternativa descartada:* flag `ehCombo` e lista de componentes dentro de `Produto`, com condicionais em carrinho, preço e estoque. Cada consumidor precisaria de `if`, e um terceiro tipo de item mexeria em todos. Também foi descartado um combo sem SKU próprio, pois o carrinho e as promoções precisam endereçá-lo como qualquer item.
+- *O que não é Composite:* as **categorias** são uma árvore simples (`Categoria`, com `pai`, e o serviço de domínio `ArvoreDeCategorias`, que calcula ancestrais e descendentes em memória). Não há comportamento que varie entre nó e folha, então chamá-las de Composite seria artificial: **categorias não têm pattern** (decisão D2 da change `catalogo-estoque`). Do mesmo modo, `Produto` não é item vendável (agrupa variações e carrega nome, descrição, marca e categoria).
 
-**Classes participantes (preliminares).**
+**Classes participantes (`implementado`, E2).** Pacote `br.com.fatec.ecommerce.catalogo`.
 
-| Papel | Classe |
+| Papel | Classe (pacote) |
 |---|---|
-| Component | `ItemVendavel` (`preco()`, `peso()`, `componentesDeEstoque()`) |
-| Leaf | `Produto` / `VariacaoDeProduto` (detalhes em [02-modelo-dominio.md](02-modelo-dominio.md)) |
-| Composite | `Combo` (lista de `ItemVendavel` com quantidades) |
-| Clientes | `ItemDoCarrinho`, `EtapaSubtotal`, `ServicoDeEstoque` |
+| Component | `ItemVendavel` (`catalogo.dominio`, classe abstrata JPA com herança `JOINED`): `preco()`, `estaDisponivelParaVenda()`, `componentesDeEstoque(int quantidade)`, `contemOuE(ItemVendavel)` (validação de ciclo) e `categoriaIdsDiretas()`. Guarda `sku` (único no catálogo inteiro), `nome`, `preco` (maior que zero) e `ativo`. |
+| Leaf | `VariacaoProduto` (`catalogo.dominio`): pertence a um `Produto`, tem atributos nome/valor; `componentesDeEstoque(q)` devolve ela mesma com `q`; está disponível se ela e o produto estão ativos. |
+| Composite | `Combo` e `ItemCombo` (`catalogo.dominio`): o combo tem SKU e preço próprios e uma lista de `ItemCombo(item: ItemVendavel, quantidade)`. `componentesDeEstoque(q)` soma recursivamente `item.componentesDeEstoque(q x quantidade)` e agrega variações repetidas; `estaDisponivelParaVenda()` exige o combo ativo, com componentes e todos eles disponíveis. |
+| Tipo de apoio | `ComponenteEstoque(variacaoId, quantidade)` (`record`, `catalogo.dominio`): o resultado de `componentesDeEstoque`. |
+| Clientes | `ConsultarItensVendaveis` (`catalogo.aplicacao`): dado um SKU devolve a visão `ItemVendavelInfo` (id, SKU, nome, preço, situação, categorias ancestrais e componentes de uma unidade) usando só o contrato, sem `instanceof`; é o contrato que o carrinho, o checkout e as promoções vão consumir. `ConsultarCatalogo` (`catalogo.aplicacao`): a disponibilidade de um combo é o mínimo de `disponivel / quantidade` entre os `componentesDeEstoque(1)`, inclusive para combo dentro de combo. Estoque: quem reserva (hoje o pedido de demonstração, depois o checkout) obtém `componentesDeEstoque(q)` do item e entrega ao `ReservarEstoque` como `ComponenteAReservar`; o `estoque` não conhece `ItemVendavel`. |
 
-**O que ficou mais fácil de modificar.** Novo tipo de agrupamento (kit sazonal, combo aninhado) = composição de itens existentes, sem tocar carrinho, preço ou estoque.
+```mermaid
+classDiagram
+    class ItemVendavel {
+        <<abstract>>
+        +preco() Dinheiro
+        +estaDisponivelParaVenda() boolean
+        +componentesDeEstoque(quantidade) List~ComponenteEstoque~
+        +contemOuE(alvo) boolean
+        +categoriaIdsDiretas() Set~Long~
+    }
+    class VariacaoProduto
+    class Combo {
+        +adicionarItem(item, quantidade)
+    }
+    class ItemCombo {
+        +quantidade int
+    }
+    class Produto
+    class ComponenteEstoque {
+        <<record>>
+        +variacaoId Long
+        +quantidade int
+    }
+    class ConsultarItensVendaveis {
+        +porSku(sku) ItemVendavelInfo
+    }
+    ItemVendavel <|-- VariacaoProduto
+    ItemVendavel <|-- Combo
+    Combo "1" *-- "1..*" ItemCombo : itens
+    ItemCombo "*" --> "1" ItemVendavel : item
+    Produto "1" *-- "1..*" VariacaoProduto : variacoes
+    ItemVendavel ..> ComponenteEstoque : produz
+    ConsultarItensVendaveis ..> ItemVendavel : usa só o contrato
+```
 
-**Status:** proposto.
+**Validação de ciclo, polimórfica.** `Combo.adicionarItem` rejeita (409, `ConflitoException`) um componente que seja o próprio combo ou que o contenha: pergunta `item.contemOuE(this)`. A folha só "contém" a si mesma; o composto acrescenta a recursão sobre os seus itens (`Combo.contemOuE`). Nenhum código inspeciona o tipo do filho. Também são rejeitados componente repetido e quantidade não positiva.
+
+**Persistência.** Herança JPA `JOINED` (migração `V3`): `item_vendavel` (raiz, discriminador `tipo` com `VARIACAO` ou `COMBO`), `variacao_produto` e `combo`, mais `combo_item` (ver [02-modelo-dominio.md](02-modelo-dominio.md), seção 1.3). Um tipo novo *persistido* precisa de valor de discriminador e tabela própria (migração); o domínio e os clientes do contrato não mudam.
+
+**Testes que comprovam.**
+- `catalogo.dominio.ItemVendavelCompositeTests`: componentes de estoque da variação e do combo, inclusive combo dentro de combo (multiplicação em cadeia e agregação de variações repetidas); disponibilidade com componente inativo; combo vazio; combo circular, direto e indireto; **extensibilidade**: `novoTipoDeItemVendavelEhTratadoPeloComboSemAlterarClassesExistentes` define a subclasse `AssinaturaDeTeste` (existe só em `src/test`, consome 3 unidades de uma variação por assinatura), a coloca dentro de um `Combo` existente e o cálculo de componentes e a disponibilidade funcionam sem nenhuma alteração nas classes do catálogo; `novoTipoTambemParticipaDaAgregacaoComOutrasVariacoes` mostra o tipo novo agregando com variações comuns.
+- `catalogo.dominio.CompositePersistenciaTests`: combo com variações e combo interno gravado e recarregado com os componentes certos.
+- `catalogo.aplicacao.GerenciarCombosTests` (combo dentro de combo e circular via casos de uso), `catalogo.aplicacao.ConsultarItensVendaveisTests` (variação e combo por SKU, mesma visão) e `catalogo.aplicacao.ConsultarCatalogoTests` (disponibilidade do combo).
+
+**O que ficou mais fácil de modificar.** Novo tipo de item vendável (assinatura, item digital, kit sazonal) = uma nova subclasse de `ItemVendavel`, sem tocar `Combo`, `ConsultarItensVendaveis`, `ConsultarCatalogo`, carrinho, preço ou estoque. Combo de combos não exige código extra. O combo tem SKU e preço próprios e nenhum saldo próprio: a reserva é feita por componente, então não há duas fontes de verdade para o mesmo estoque.
+
+**Desvio em relação à proposta original.** A proposta previa `peso()` e `categoriasAncestrais()` no componente. O peso ficou para a etapa 7 (frete), se for necessário, e as categorias ancestrais dependem da árvore inteira, então são calculadas por `ConsultarItensVendaveis` com `ArvoreDeCategorias` a partir de `categoriaIdsDiretas()` (a variação devolve a categoria do produto; o combo não tem categoria própria).
+
+**Status:** `implementado` (E2, change `catalogo-estoque`).
 
 ---
 
@@ -381,7 +438,7 @@ classDiagram
 | Papel | Classe |
 |---|---|
 | Facade | `CheckoutFacade` |
-| Subsistemas | `RevalidadorDeCarrinho`, `CalculadoraDePreco` (3.3), `ServicoDeEstoque` (reserva), `PedidoService`, `PagamentoService` |
+| Subsistemas | `RevalidadorDeCarrinho`, `CalculadoraDePreco` (3.3), `ReservarEstoque` (reserva, `estoque.aplicacao`, E2 `implementado`), `PedidoService`, `PagamentoService` |
 | Cliente | `CheckoutController` |
 
 **O que ficou mais fácil de modificar.** Inserir um passo (por exemplo, validação antifraude simulada) altera a fachada em um ponto; o controller e os módulos permanecem como estão.
@@ -414,5 +471,6 @@ O enunciado diz que a equipe deverá "explicar quais componentes seriam criados 
 | Novo interessado em um evento (ex.: programa de fidelidade) | Novo listener | Nenhuma | Quem publica o evento | Observer |
 | Nova etapa de preço (ex.: taxa de embalagem) | Nova `EtapaPreco` | Ordem da lista de etapas | Demais etapas | Chain of Responsibility |
 | Novo estado do pedido | Nova classe de estado | Transições que chegam ao novo estado; [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md) | Demais estados | State |
+| Novo tipo de item vendável (ex.: assinatura, kit sazonal) | Nova subclasse de `ItemVendavel` (e, se persistida, discriminador e tabela na migração) | Nenhuma classe existente | `Combo`, `ConsultarItensVendaveis`, carrinho, preço, estoque | Composite |
 
 Frase-guia: "o ponto de variação já está isolado atrás de um contrato; a mudança entra como uma classe nova e um registro, e as regras centrais não são alteradas".

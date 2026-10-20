@@ -2,7 +2,7 @@
 
 > **Objetivo:** dividir o desenvolvimento completo entre os 4 integrantes com carga equilibrada. Cada pessoa é dona de um conjunto de módulos (código, testes, diagramas e justificativa dos patterns).
 > **Etapas do roadmap relacionadas:** todas (E1 a E9). Ver [08-roadmap.md](08-roadmap.md).
-> **Status:** proposto
+> **Status:** proposto. A divisão abaixo é o **planejado** e não foi alterada; a seção 2.1 registra quem **implementou de fato** cada change.
 
 ## 1. Peso das etapas
 
@@ -27,10 +27,27 @@ Os pontos são esforço relativo, não horas.
 | | Arthur (13) | Lucas Gomes (12) | Amanda Duara (12) | Mateus Rocha (13) |
 |---|---|---|---|---|
 | **Etapas** | E1 Fundação; E4 Checkout e pedido | E2 Catálogo e estoque; E3 Carrinho; E9 Relatórios | E5 Promoções e cupons; E8 Auditoria | E6 Pagamento e idempotência; E7 Entrega e frete; E8 Eventos e notificações |
-| **Patterns que defende** | State, Facade | Composite (categorias/combos), Chain of Responsibility (pipeline de preço) | Strategy, Composite/Specification (condições), Factory Method | Adapter, Observer |
+| **Patterns que defende** | State, Facade | Composite (combos), Observer (ouvintes do estoque), Chain of Responsibility (pipeline de preço) | Strategy, Composite/Specification (condições), Factory Method | Adapter, Observer (eventos e notificações) |
 | **Diagramas** | Estados do pedido; sequência do checkout; consolidação do diagrama de classes | Classes do catálogo | Sequência de aplicação de promoções; classes de promoção | Sequência de confirmação de pagamento (idempotente) |
 | **Testes-chave** ([09-testes.md](09-testes.md)) | Transição inválida de pedido; checkout com preço/promoção alterados; segurança | Estoque insuficiente; última unidade concorrente; recálculo do carrinho | Cada tipo de promoção; múltiplas promoções (conflito); cupom inválido | Pagamento recusado; confirmação duplicada; troca de gateway |
 | **Documentos que mantém** | 03, 06, 10, README | 02 (catálogo), 05 (estoque), 09 | 04 (seções de promoção), 05 (promoções/cupons) | 04 (Adapter/Observer), 05 (idempotência), 07 (pagamento) |
+
+### 2.1 Implementado por (situação real)
+
+A tabela acima não mudou: a atribuição original está preservada. Esta tabela registra quem implementou de fato cada change, para a defesa e o histórico (ver também [12-board.md](12-board.md) e `commits.md`).
+
+| Change | Atribuída a (original) | Implementada por | Observação |
+|---|---|---|---|
+| `estruturar-documentacao` | Arthur | Arthur | Conforme planejado. |
+| `fundacao-projeto` | Arthur | Arthur | Conforme planejado; arquivada em 2026-10-14. |
+| `pedido-ciclo-vida` | Arthur | Arthur | Conforme planejado; arquivada em 2026-10-14. |
+| `catalogo-estoque` | Lucas | **Arthur** | Implementado por Arthur (atribuição original: Lucas); em revisão, com a verificação final pendente. Os patterns dela (Composite de combos e Observer, ouvintes do estoque) continuam na lista de Lucas para a defesa. |
+| `carrinho-compras`, `relatorios-gerenciais` | Lucas | não iniciadas | |
+| `checkout` | Arthur | não iniciada | Depende de `carrinho-compras`. |
+| `promocoes-cupons`, auditoria | Amanda | não iniciadas | |
+| `pagamento-idempotencia`, `entrega-frete`, eventos e notificações | Mateus | não iniciadas | |
+
+Quem não implementou a change que lhe cabia deve estudar o código antes da defesa (rodízio da onda 4, seção 5), em particular o Lucas, que defende o Composite e o Observer de uma change que Arthur implementou.
 
 Motivos da divisão:
 - **Promoções (Amanda) leva o maior peso.** É a parte mais avaliada, então vem acompanhada apenas de auditoria, que é leve.

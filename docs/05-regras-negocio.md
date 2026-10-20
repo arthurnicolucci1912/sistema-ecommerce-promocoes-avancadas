@@ -4,7 +4,7 @@
 >
 > **Etapas do roadmap relacionadas:** 2 (catálogo e estoque), 3 (carrinho e recálculo), 4 (checkout e pedido), 5 (promoções e cupons), 6 (pagamento e idempotência), 7 (entrega e frete). Ver [08-roadmap.md](08-roadmap.md).
 >
-> **Status:** proposto, com RN-23, RN-26 e RN-28 `implementado` na E4 (change `pedido-ciclo-vida`; os efeitos de estoque, cupom e estorno de RN-26 e RN-27 continuam futuros). As decisões D4 (conflito), D5 (estoque) e D6 (idempotência) do design da change vêm do design aprovado; os pontos marcados como *premissa* são escolhas preliminares desta documentação e podem ser revistas na change da etapa, registrando o motivo.
+> **Status:** proposto, com RN-23, RN-26 e RN-28 `implementado` na E4 (change `pedido-ciclo-vida`) e RN-17 a RN-21 `implementado` na E2 (change `catalogo-estoque`, no nível do módulo `estoque`; a ligação com o carrinho e com o checkout é das etapas 3 e 4). Os efeitos de estoque de RN-26 também estão `implementado` na E2; os de cupom e estorno (RN-26 e RN-27) continuam futuros. As decisões D4 (conflito), D5 (estoque) e D6 (idempotência) do design da change vêm do design aprovado; os pontos marcados como *premissa* são escolhas preliminares desta documentação e podem ser revistas na change da etapa, registrando o motivo.
 
 Documentos relacionados: [04-design-patterns.md](04-design-patterns.md), [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md), [09-testes.md](09-testes.md).
 
@@ -188,11 +188,17 @@ Cada produto/variação tem `disponivel` (unidades livres) e `reservado` (unidad
 Adicionar ou alterar item no carrinho consulta a disponibilidade para avisar o cliente, mas **não reserva**. Verificar no carrinho não garante o estoque no checkout (enunciado, *Estoque*).
 *Exemplo:* o cliente vê "2 disponíveis" ao adicionar; ao concluir o checkout, a quantidade é conferida de novo (RN-22).
 
+**Status:** `implementado` (E2) como consulta: `ConsultarSaldo` não reserva nada, e o detalhe público do produto e do combo mostram a disponibilidade (`disponivel` de cada variação; a do combo é o mínimo de `disponivel / quantidade` entre os componentes). Testes: `catalogo.aplicacao.ConsultarCatalogoTests` e `estoque.aplicacao.AjusteEConsultaDeSaldoTests`. O carrinho que usa essa consulta é da etapa 3.
+
 ### RN-18. Reserva na conclusão do checkout (D5)
 A reserva acontece quando o checkout é concluído e o pedido entra em `AGUARDANDO_PAGAMENTO`. Ela move unidades de `disponivel` para `reservado`, de todos os itens do pedido na mesma transação: se um item falhar, nenhum é reservado e o checkout é abortado com erro de estoque insuficiente.
 
+**Status:** `implementado` (E2) em `estoque.aplicacao.ReservarEstoque.para(pedidoId, componentes)`. É **tudo-ou-nada**: roda na transação do chamador, e a exceção `EstoqueInsuficienteException` (409, com `variacaoId` e `disponivel` no Problem Details) desfaz as reservas já feitas dessa chamada. As quantidades são somadas por variação e processadas **ordenadas por `variacaoId`**, o que evita deadlock entre pedidos que disputam as mesmas variações. Reservar de novo para um pedido que já tem reserva é rejeitado (409). Para um combo, o chamador reserva os `componentesDeEstoque` (variações e quantidades já agregadas). Testes: `estoque.aplicacao.ReservarEstoqueTests`. Quem aciona a reserva é o checkout (etapa 4); até lá, só o pedido de demonstração do perfil `dev`.
+
 ### RN-19. Pagamento aprovado converte a reserva em baixa
 Na confirmação do pagamento (`PAGO`), as unidades saem de `reservado` (baixa definitiva).
+
+**Status:** `implementado` (E2): o ouvinte `OuvinteDePedidosDoEstoque` reage a `PedidoPago` e chama `MovimentarReservas.baixar` (reserva `ATIVA` para `BAIXADA`; o `reservado` diminui e o `disponivel` não muda). É **idempotente**: a troca de situação é um `UPDATE ... WHERE situacao = 'ATIVA'` e o saldo só muda se a troca de fato aconteceu; repetir o evento, ou um pedido sem reserva, não tem efeito nem erro. Testes: `estoque.aplicacao.MovimentarReservasTests` e `estoque.aplicacao.OuvintesDoEstoqueTests` (com os serviços reais do pedido).
 
 ### RN-20. Liberação da reserva
 Pagamento recusado, cancelamento em `AGUARDANDO_PAGAMENTO` ou expiração por falta de pagamento devolvem as unidades de `reservado` para `disponivel`. A expiração (prazo a definir na etapa 6) equivale a um cancelamento automático do pedido, com o sistema como ator no histórico.
@@ -204,8 +210,21 @@ Pagamento recusado, cancelamento em `AGUARDANDO_PAGAMENTO` ou expiração por fa
 | Pagamento recusado, cancelamento ou expiração (liberação) | +1 | -1 | inalterado |
 | Cancelamento após baixa (RN-26) | +1 | inalterado | +1 |
 
+**Status:** `implementado` (E2), exceto a expiração (etapa 6). Os efeitos saem do mesmo ouvinte, `OuvinteDePedidosDoEstoque`, que escolhe a ação por um mapa da situação de origem (`de`) do `PedidoCancelado`, sem `switch`:
+
+| Evento do pedido | Ação (`MovimentarReservas`) | Transição da reserva |
+|---|---|---|
+| `PedidoPagamentoRecusado` | `liberar` | `ATIVA` para `LIBERADA` |
+| `PedidoCancelado` com `de = AGUARDANDO_PAGAMENTO` | `liberar` | `ATIVA` para `LIBERADA` |
+| `PedidoCancelado` com `de = PAGO` ou `EM_PREPARACAO` | `repor` (a mercadoria não saiu) | `BAIXADA` para `REPOSTA` |
+| `PedidoPago` | `baixar` (RN-19) | `ATIVA` para `BAIXADA` |
+
+Liberar, baixar e repor são idempotentes: liberar duas vezes devolve ao `disponivel` uma única vez, e a reposição só age sobre uma reserva `BAIXADA`. Cancelar de `CRIADO` ou `PAGAMENTO_RECUSADO` não tem efeito de estoque (sem reserva ativa, ou já liberada). Uma transição rejeitada pelo pedido não publica evento e, portanto, não altera o estoque. Testes: `estoque.aplicacao.MovimentarReservasTests` (`liberarDuasVezes...`, `reporDesfaz...`, `pedidoSemReserva...`) e `estoque.aplicacao.OuvintesDoEstoqueTests` (cancelamento antes e depois do pagamento, em preparação, recusa, transição rejeitada e pedido sem reserva).
+
 ### RN-21. Concorrência pela última unidade (D5)
-A reserva é uma atualização condicional atômica: decrementa `disponivel` somente se `disponivel >= quantidade`, e a quantidade de linhas afetadas decide o resultado. O mecanismo exato (atualização condicional ou lock otimista com `@Version`) fica para a change de checkout.
+A reserva é uma atualização condicional atômica: decrementa `disponivel` somente se `disponivel >= quantidade`, e a quantidade de linhas afetadas decide o resultado.
+
+**Decisão (`implementado`, E2):** `UPDATE saldo_estoque SET disponivel = disponivel - :q, reservado = reservado + :q WHERE variacao_id = :v AND disponivel >= :q`. Zero linhas afetadas lança `EstoqueInsuficienteException`, e a transação desfaz as reservas anteriores (tudo-ou-nada, RN-18). O ajuste administrativo usa a mesma técnica (`disponivel + :delta >= 0`), e o `CHECK (disponivel >= 0)` do banco é a última barreira. *Alternativas descartadas:* lock otimista com `@Version` e nova tentativa (gera retentativas sob disputa e mais código; o `UPDATE` condicional resolve em uma ida ao banco) e lock pessimista (serializa leituras desnecessariamente).
 
 **Cenário: a última unidade.** O Teclado tem `disponivel = 1`. Os clientes A e B têm o Teclado no carrinho (a consulta de ambos mostrou 1 disponível, RN-17).
 1. A conclui o checkout: a atualização condicional (`disponivel = disponivel - 1 ... where disponivel >= 1`) afeta 1 linha. A reserva é bem-sucedida; o pedido de A vai a `AGUARDANDO_PAGAMENTO`.
@@ -213,6 +232,8 @@ A reserva é uma atualização condicional atômica: decrementa `disponivel` som
 3. Se A tiver o pagamento recusado, a unidade é liberada (`disponivel = 1`) e B pode tentar novamente.
 
 Duas requisições simultâneas competem na mesma linha do banco; como a condição é avaliada de forma atômica, apenas uma tem sucesso.
+
+**Teste de concorrência (`implementado`, E2):** `estoque.aplicacao.ReservaConcorrenteTests` dispara 10 threads, com uma barreira de largada, pela única unidade de uma variação (`@RepeatedTest(3)`, sem instabilidade): exatamente 1 sucesso e 9 `EstoqueInsuficienteException`, com saldo final de 0 disponível e 1 reservado, e uma única reserva gravada.
 
 ---
 
@@ -268,15 +289,15 @@ O cancelamento é permitido a partir de `CRIADO`, `AGUARDANDO_PAGAMENTO`, `PAGAM
 - Em `PAGO` e `EM_PREPARACAO` só o cancelamento administrativo é aceito (o cliente recebe 409): depois do pagamento, o cancelamento envolve estorno e reposição de estoque, e por isso fica com a administração. O perfil `ESTOQUE` não cancela.
 - A regra mora nos estados `Pago` e `EmPreparacao` (não no controller): mudar a política exige ajustar só essas duas classes. Ver [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md), seção 8.2.
 
-| Estado de origem | Estoque *(futuro)* | Pagamento *(futuro)* | Cupom *(futuro)* |
+| Estado de origem | Estoque (`implementado`, E2) | Pagamento *(futuro)* | Cupom *(futuro)* |
 |---|---|---|---|
 | `CRIADO` | nada a liberar (sem reserva) | nada | uso devolvido, se consumido |
 | `AGUARDANDO_PAGAMENTO` | reserva liberada | cobrança pendente cancelada | uso devolvido |
 | `PAGAMENTO_RECUSADO` | nada (já liberada na recusa) | nada | nada (já devolvido na recusa) |
-| `PAGO` | unidades repostas (a baixa é revertida, pois a mercadoria não saiu) *(premissa)* | **estorno simulado** | uso devolvido |
-| `EM_PREPARACAO` | unidades repostas *(premissa)* | **estorno simulado** | uso devolvido |
+| `PAGO` | unidades repostas (a baixa é revertida, pois a mercadoria não saiu) | **estorno simulado** | uso devolvido |
+| `EM_PREPARACAO` | unidades repostas | **estorno simulado** | uso devolvido |
 
-**Status:** `implementado` na E4 quanto às regras de estado, perfil, motivo e histórico (testes: `pedido.dominio.estado.EstadosDoPedidoTests`, `pedido.dominio.PedidoTests`, `pedido.web.PedidosDoClienteTests`, `pedido.web.PedidosAdministrativosTests`). Os efeitos das três colunas da tabela (estoque, pagamento e cupom) **não são executados ainda**: o `PedidoCancelado` é publicado com o estado de origem (`de`) e esses efeitos serão ouvintes nas etapas de estoque, pagamento (E6) e cupons (E5).
+**Status:** `implementado` na E4 quanto às regras de estado, perfil, motivo e histórico (testes: `pedido.dominio.estado.EstadosDoPedidoTests`, `pedido.dominio.PedidoTests`, `pedido.web.PedidosDoClienteTests`, `pedido.web.PedidosAdministrativosTests`). O efeito de **estoque** passou a ser executado na E2 (ver RN-19 e RN-20): o `PedidoCancelado` é publicado com o estado de origem (`de`) e o ouvinte do estoque libera ou repõe conforme a origem. Os efeitos de **pagamento** e de **cupom** **não são executados ainda** e serão ouvintes nas etapas de pagamento (E6) e cupons (E5).
 
 ### RN-27. Estorno simulado
 **Status:** futuro (etapa 6, `pagamento-idempotencia`); nesta etapa só o evento `PedidoCancelado` com `de` é publicado.

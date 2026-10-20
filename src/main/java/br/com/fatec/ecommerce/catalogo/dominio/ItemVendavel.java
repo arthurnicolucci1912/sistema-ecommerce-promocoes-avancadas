@@ -94,10 +94,6 @@ public abstract class ItemVendavel {
     public abstract List<ComponenteEstoque> componentesDeEstoque(int quantidade);
 
     /**
-     * Se este item e {@code alvo} ou o contem, direta ou indiretamente. A folha so "contem" a si mesma; o composto
-     * acrescenta os seus componentes. Serve a validacao de combo circular sem inspecionar o tipo dos filhos.
-     */
-    /**
      * Ids das categorias a que o item pertence diretamente (sem os ancestrais, que a arvore de categorias calcula).
      * Por padrao e vazio: o item nao pertence a categoria nenhuma e quem o consome nao precisa tratar isso. A
      * variacao devolve a categoria do produto; o combo nao tem categoria propria (nao herda a dos componentes), pois
@@ -107,6 +103,10 @@ public abstract class ItemVendavel {
         return Set.of();
     }
 
+    /**
+     * Se este item e {@code alvo} ou o contem, direta ou indiretamente. A folha so "contem" a si mesma; o composto
+     * acrescenta os seus componentes. Serve a validacao de combo circular sem inspecionar o tipo dos filhos.
+     */
     public boolean contemOuE(ItemVendavel alvo) {
         return mesmoItemQue(alvo);
     }

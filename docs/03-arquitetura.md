@@ -2,7 +2,7 @@
 
 > **Objetivo:** definir as camadas, a organização de pacotes por módulo, os pontos de variação e os contratos centrais (interfaces) que sustentam a extensibilidade exigida pelo enunciado.
 > **Etapas do roadmap relacionadas:** E1 a E9. A fundação (E1) cria a estrutura; cada etapa seguinte preenche o seu módulo. Ver [08-roadmap.md](08-roadmap.md).
-> **Status:** proposto, com a parte da E1 `implementado` (pacotes, contratos da seção 5.1 a 5.8 e regras de arquitetura) e o módulo `pedido` da E4 `implementado` (pacotes efetivos, eventos do pedido, `EstadoPedido` da seção 5.9 e regras de erro e de arquitetura; ver as seções 3, 5 e 7). O restante são sugestões preliminares, refinadas em cada etapa.
+> **Status:** proposto, com a parte da E1 `implementado` (pacotes, contratos da seção 5.1 a 5.8 e regras de arquitetura), o módulo `pedido` da E4 `implementado` (pacotes efetivos, eventos do pedido, `EstadoPedido` da seção 5.9 e regras de erro e de arquitetura; ver as seções 3, 5 e 7) e os módulos `catalogo` e `estoque` da E2 `implementado` (pacotes efetivos, contratos da seção 5.10, rotas e perfis da seção 5.11 e regras ArchUnit da seção 7). O restante são sugestões preliminares, refinadas em cada etapa.
 
 ## 1. Princípios
 
@@ -50,8 +50,8 @@ Pacote raiz: `br.com.fatec.ecommerce` (`implementado` na E1). Cada módulo abaix
 | `compartilhado` | Tipos comuns sem regra de negócio: `Dinheiro`, exceções base, `EventoDominio` e `PublicadorEventos`, tratamento de erros (`ProblemDetail`), configuração do OpenAPI. `Periodo` continua previsto. | E1 (`implementado`) |
 | `seguranca` | `Usuario` e `Perfil` (credencial e perfis de acesso), autenticação (login e emissão de JWT), autorização por perfil, hash de senha, gestão de usuários administrativos. Transversal. | E1 (`implementado`) |
 | `cliente` | `Cliente` (referencia o usuário por `usuarioId`, sem associação JPA) e `Endereco`. | E1 (`implementado`) |
-| `catalogo` | Produtos, variações, categorias hierárquicas, combos (opcional). | E2 |
-| `estoque` | Saldo, reserva, liberação e baixa de estoque. | E2, E4 |
+| `catalogo` | Produtos, variações, categorias em árvore, combos (Composite de itens vendáveis), consulta pública e administração do catálogo. | E2 (`implementado`, change `catalogo-estoque`) |
+| `estoque` | Saldo por variação, ajuste administrativo, reserva tudo-ou-nada, liberação, baixa e reposição idempotentes, e os ouvintes dos eventos do pedido e do catálogo. | E2 (`implementado`, change `catalogo-estoque`); a reserva é acionada pelo checkout (E4) |
 | `carrinho` | Carrinho e itens; consulta (não reserva) disponibilidade. | E3 |
 | `pedido` | Pedido, itens, descontos, máquina de estados (State) e histórico, consultas, cancelamento e eventos do pedido. | E4 (`implementado`, change `pedido-ciclo-vida`) |
 | `checkout` | Orquestração da conversão de carrinho em pedido (Facade). Não tem regras de preço, estoque, pagamento ou entrega: apenas coordena os demais. | E4 (change `checkout`, depois de `carrinho-compras`) |
@@ -63,7 +63,7 @@ Pacote raiz: `br.com.fatec.ecommerce` (`implementado` na E1). Cada módulo abaix
 | `auditoria` | Registro de operações administrativas (quem, o quê, quando). | E8 |
 | `relatorio` | Consultas gerenciais, somente leitura. | E9 |
 
-### Pacotes efetivos (E1 e E4)
+### Pacotes efetivos (E1, E2 e E4)
 
 Estrutura real do código (raiz `br.com.fatec.ecommerce`), todos com status `implementado`, exceto onde indicado:
 
@@ -81,7 +81,16 @@ Estrutura real do código (raiz `br.com.fatec.ecommerce`), todos com status `imp
 | `cliente.aplicacao` | `CadastrarCliente`, `GerenciarCliente`, `GerenciarEnderecos` |
 | `cliente.web` | `ClienteController`, `EnderecoController` e seus DTOs |
 | `cliente.infra.persistencia` | `ClienteJpaRepository`, `ClienteRepositoryJpa`, `EnderecoJpaRepository`, `EnderecoRepositoryJpa` |
-| `infra.demo` | `UsuariosDeDemonstracao` (`ApplicationRunner` do perfil `dev`; fica fora dos módulos porque cruza `seguranca`, `cliente` e `pedido`; cria também um pedido de demonstração, ver [10-execucao.md](10-execucao.md)) |
+| `infra.demo` | `UsuariosDeDemonstracao` (`ApplicationRunner` do perfil `dev`; fica fora dos módulos porque cruza `seguranca`, `cliente`, `catalogo`, `estoque` e `pedido`; cria também um pedido de demonstração com reserva de estoque, ver [10-execucao.md](10-execucao.md)) e `CatalogoDeDemonstracao` (carga idempotente de categorias, produtos, combo e estoque, só no perfil `dev`; usa os casos de uso reais com um contexto de segurança de sistema temporário) |
+| `catalogo.dominio` (E2) | `ItemVendavel`, `VariacaoProduto`, `Combo`, `ItemCombo` (Composite), `Produto`, `Categoria`, `ArvoreDeCategorias`, `ComponenteEstoque`, `ItemVendavelRepository`, `ProdutoRepository`, `CategoriaRepository` |
+| `catalogo.dominio.evento` (E2) | `VariacaoCadastrada` |
+| `catalogo.aplicacao` (E2) | `GerenciarCategorias`, `GerenciarProdutos`, `CadastrarVariacao`, `GerenciarCombos`, `ConsultarCatalogo`, `ConsultarItensVendaveis` e os tipos de entrada e saída (`NovaVariacao`, `ComponenteDeCombo`, `FiltroDeProdutos`, `ProdutoResumo`, `ProdutoDetalhe`, `ProdutoAdministrativo`, `ComboDetalhe`, `NoDeCategoria`, `ItemVendavelInfo`) |
+| `catalogo.web` (E2) | `CatalogoPublicoController`, `CategoriasAdministrativasController`, `ProdutosAdministrativosController`, `CombosAdministrativosController` e seus DTOs |
+| `catalogo.infra.persistencia` (E2) | `CategoriaJpaRepository`, `CategoriaRepositoryJpa`, `ProdutoJpaRepository`, `ProdutoRepositoryJpa`, `ItemVendavelJpaRepository`, `ItemVendavelRepositoryJpa`, `ViolacoesDeUnicidade` |
+| `estoque.dominio` (E2) | `SaldoEstoque`, `ReservaEstoque`, `SituacaoReserva`, `ComponenteAReservar`, `EstoqueInsuficienteException`, `SaldoNaoEncontradoException`, `SaldoEstoqueRepository`, `ReservaEstoqueRepository` |
+| `estoque.aplicacao` (E2) | `ReservarEstoque`, `MovimentarReservas`, `AjustarEstoque`, `ConsultarSaldo` e os ouvintes `OuvinteDePedidosDoEstoque` e `OuvinteDeCatalogoDoEstoque` |
+| `estoque.web` (E2) | `EstoqueAdministrativoController`, `AjusteDeEstoqueRequest`, `SaldoResponse` |
+| `estoque.infra.persistencia` (E2) | `SaldoEstoqueJpaRepository`, `SaldoEstoqueRepositoryJpa`, `ReservaEstoqueJpaRepository`, `ReservaEstoqueRepositoryJpa` (reserva e movimentações por `UPDATE` condicional nativo) |
 | `pedido.dominio` | `Pedido` (agregado), `ItemPedido`, `DescontoPedido`, `EnderecoEntrega`, `EntradaHistorico`, `SituacaoPedido`, `OperacaoPedido`, `Responsavel`, `TipoResponsavel`, `OrigemDesconto`, `AlvoDoDesconto`, `DadosNovoPedido` (snapshot de entrada), `ResumoPedido`, `TransicaoInvalidaException`, `PedidoRepository` |
 | `pedido.dominio.estado` | `EstadoPedido`, `EstadoPedidoBase`, `DadosDaTransicao` e os 8 estados `Criado`, `AguardandoPagamento`, `Pago`, `PagamentoRecusado`, `EmPreparacao`, `Enviado`, `Entregue`, `Cancelado` |
 | `pedido.dominio.evento` | `PedidoCriado`, `PedidoPago`, `PedidoPagamentoRecusado`, `PedidoEmPreparacao`, `PedidoEnviado`, `PedidoEntregue`, `PedidoCancelado` |
@@ -127,6 +136,8 @@ flowchart LR
     relatorio["relatorio"]
     eventos{{"eventos de domínio"}}
 
+    catalogo -->|"consulta o saldo (disponibilidade)"| estoque
+    catalogo --> eventos
     carrinho --> catalogo
     carrinho --> estoque
     carrinho --> preco
@@ -157,7 +168,8 @@ flowchart LR
 Leitura do diagrama:
 - Linhas cheias são dependências diretas (chamada a uma interface de aplicação do outro módulo).
 - Linhas pontilhadas para `eventos de domínio` são **reações por evento**: o publicador não conhece quem reage. Por exemplo, `pagamento` publica `PagamentoConfirmado` e `pedido`, `estoque`, `notificacao` e `auditoria` reagem, sem que `pagamento` dependa de nenhum deles.
-- Não há dependência circular. `pedido` não depende de `pagamento`, `entrega` nem `notificacao`; do `cliente` usa só `ClienteRepository` (conferir que o cliente existe e achar o cliente do usuário autenticado), e do `compartilhado` os tipos comuns.
+- Não há dependência circular entre as classes de domínio. `pedido` não depende de `pagamento`, `entrega`, `notificacao`, **`estoque` nem `catalogo`**; do `cliente` usa só `ClienteRepository` (conferir que o cliente existe e achar o cliente do usuário autenticado), e do `compartilhado` os tipos comuns.
+- **`catalogo` e `estoque` (E2, `implementado`).** Há dependência nos dois sentidos, mas só no sentido permitido e fiscalizado: (1) `catalogo` para `estoque`, porque a consulta pública mostra a disponibilidade e usa `ConsultarSaldo`; (2) `estoque` para `catalogo`, **somente** o pacote `catalogo.dominio.evento` (o evento `VariacaoCadastrada`, para criar o saldo zero), e para `pedido.dominio.evento` (os eventos do pedido, mais `SituacaoPedido`). O estoque guarda apenas o id da variação e o id do pedido (sem chave estrangeira). O `catalogo` não depende do `pedido`.
 - `seguranca` é transversal e foi simplificado no diagrama (protege todos os módulos expostos por HTTP).
 
 ### Verificação da regra "nenhum módulo concentra tudo"
@@ -187,7 +199,8 @@ Cada ponto de variação corresponde a um trecho do enunciado em que "novos iten
 | Gateway de pagamento | Pagamentos (fornecedor diferente) | `GatewayPagamento` | Cartão simulado, PIX simulado, boleto simulado | Novo adaptador para o provedor |
 | Provedor de frete | Entrega (novos serviços) | `ProvedorFrete` | Entrega padrão, expressa e retirada simuladas | Novo provedor, sem tocar em checkout |
 | Canal de notificação | Notificações (novos canais) | `CanalNotificacao` | E-mail simulado, console/log | Novo canal registrado como ouvinte |
-| Reação a eventos | Eventos do sistema | `EventoDominio` e ouvintes | Estoque, pedido, notificação, auditoria | Novo ouvinte do evento, sem alterar o publicador |
+| Item vendável | Carrinho (combos/kits); Catálogo (novos tipos) | `ItemVendavel` | `VariacaoProduto`, `Combo` (`implementado`, E2) | Nova subclasse de `ItemVendavel`, sem alterar combo, carrinho, preço nem estoque |
+| Reação a eventos | Eventos do sistema | `EventoDominio` e ouvintes | Estoque (`OuvinteDePedidosDoEstoque`, `OuvinteDeCatalogoDoEstoque`, `implementado` na E2), notificação, auditoria | Novo ouvinte do evento, sem alterar o publicador |
 | Tipo de benefício do cupom | Cupons (percentual, fixo, outros) | Reuso de `Promocao`/efeito | Percentual e valor fixo | Nova implementação de efeito |
 
 ## 5. Contratos centrais (interfaces sugeridas)
@@ -309,18 +322,19 @@ Eventos, com origem e interessados. Os do pedido estão `implementado` (E4, paco
 | Evento | Publicado por | Ouvintes previstos | Situação |
 |---|---|---|---|
 | `PedidoCriado` | `pedido` (chegada a `AGUARDANDO_PAGAMENTO`, depois da reserva) | `notificacao`, `auditoria` | `implementado` (E4) |
-| `PedidoPago` | `pedido` (chegada a `PAGO`) | `estoque` (converte reserva em baixa), `notificacao`, `auditoria` | `implementado` (E4) |
-| `PedidoPagamentoRecusado` | `pedido` (chegada a `PAGAMENTO_RECUSADO`) | `estoque` (libera reserva), `notificacao` | `implementado` (E4) |
+| `PedidoPago` | `pedido` (chegada a `PAGO`) | `estoque` (converte reserva em baixa; `implementado` na E2), `notificacao`, `auditoria` | `implementado` (E4) |
+| `PedidoPagamentoRecusado` | `pedido` (chegada a `PAGAMENTO_RECUSADO`) | `estoque` (libera reserva; `implementado` na E2), `notificacao` | `implementado` (E4) |
 | `PedidoEmPreparacao` | `pedido` | a definir (etapas 7 e 8) | `implementado` (E4) |
 | `PedidoEnviado` | `pedido` | `notificacao` | `implementado` (E4) |
 | `PedidoEntregue` | `pedido` | a definir (etapas 7 e 8) | `implementado` (E4) |
-| `PedidoCancelado` | `pedido` (traz `responsavel` e `motivo`) | `estoque` (libera reserva ou repõe a baixa, conforme `de`), `pagamento` (estorno), `notificacao`, `auditoria` | `implementado` (E4) |
+| `PedidoCancelado` | `pedido` (traz `responsavel` e `motivo`) | `estoque` (libera reserva ou repõe a baixa, conforme `de`; `implementado` na E2), `pagamento` (estorno), `notificacao`, `auditoria` | `implementado` (E4) |
+| `VariacaoCadastrada` | `catalogo` (`CadastrarVariacao`, ao cadastrar uma variação; traz `variacaoId`, `sku` e `ocorridoEm`) | `estoque` (cria o saldo zero) | `implementado` (E2) |
 | `PagamentoConfirmado` | `pagamento` | `pedido` (vai para `PAGO`), `estoque` (converte reserva em baixa), `notificacao`, `auditoria` | previsto (E6), nome preliminar |
 | `PagamentoRecusado` | `pagamento` | `pedido` (vai para `PAGAMENTO_RECUSADO`), `estoque` (libera reserva), `notificacao` | previsto (E6), nome preliminar |
 
 `PedidoPago` e `PedidoPagamentoRecusado` **não são** os eventos do módulo de pagamento: são o aviso do pedido sobre a própria mudança de estado e têm nomes distintos de `PagamentoConfirmado` e `PagamentoRecusado`, que o módulo `pagamento` publicará na etapa 6 e que o `pedido` passará a ouvir para chamar a transição.
 
-Todos os eventos do pedido são `record`s que implementam `EventoDominio` e carregam `pedidoId`, `clienteId`, `de`, `para` e `ocorridoEm`. Cada estado decide o que anuncia ao ser alcançado (`EstadoPedido.eventoDeChegada`); os serviços `ConfirmarReservaDoPedido` e `TransicionarPedido` os publicam depois de salvar. Ainda **não há ouvinte** em produção: só o teste `pedido.aplicacao.OuvinteDeCancelamentoTests` registra um. Ver [04-design-patterns.md](04-design-patterns.md), seção 3.6.
+Todos os eventos do pedido são `record`s que implementam `EventoDominio` e carregam `pedidoId`, `clienteId`, `de`, `para` e `ocorridoEm`. Cada estado decide o que anuncia ao ser alcançado (`EstadoPedido.eventoDeChegada`); os serviços `ConfirmarReservaDoPedido` e `TransicionarPedido` os publicam depois de salvar. Os ouvintes de produção existentes são os do estoque (E2): `estoque.aplicacao.OuvinteDePedidosDoEstoque` (`PedidoPago` baixa, `PedidoPagamentoRecusado` libera, `PedidoCancelado` libera ou repõe conforme `de`) e `estoque.aplicacao.OuvinteDeCatalogoDoEstoque` (`VariacaoCadastrada`), ambos `@EventListener` síncronos, na transação de quem publicou. O módulo `pedido` não foi alterado para isso. Notificação, auditoria e pagamento ainda não têm ouvinte (o teste `pedido.aplicacao.OuvinteDeCancelamentoTests` registra um só para provar o mecanismo). Ver [04-design-patterns.md](04-design-patterns.md), seção 3.6.
 
 Publicação (`implementado` na E1): a interface `PublicadorEventos` (`void publicar(EventoDominio evento)`, em `compartilhado.dominio`) é implementada por `PublicadorEventosSpring` (`compartilhado.infra`), que delega ao `ApplicationEventPublisher` do Spring. Os ouvintes usarão `@EventListener`/`@TransactionalEventListener` nas etapas seguintes. Assim o domínio não depende do Spring.
 
@@ -345,6 +359,57 @@ public interface EstadoPedido {
 Diferenças em relação à proposta original: as operações não recebem o `Pedido` (o estado não guarda nem altera dados; só devolve o próximo estado); `cancelar` recebe o `Responsavel`, porque a regra por perfil mora no estado (`Pago` e `EmPreparacao` exigem responsável administrativo); e `eventoDeChegada` permite ao estado de destino anunciar o evento da transição. `EstadoPedidoBase` implementa tudo lançando `TransicaoInvalidaException`, e cada estado concreto sobrescreve só as transições que admite. `SituacaoPedido` (enum persistido como texto) devolve a instância de cada estado (`estado()`). Estados e transições estão em [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md); o pattern, em [04-design-patterns.md](04-design-patterns.md), seção 3.4.
 
 `EstadoPedido` não está na lista de contratos da onda 0 verificada pelo ArchUnit (`CONTRATOS_DA_ONDA_0`), porque os estados concretos são do domínio do pedido e não adaptadores em `infra`.
+
+### 5.10 Contratos do catálogo e do estoque (`implementado`, E2)
+
+São os serviços de aplicação que os próximos módulos (carrinho, checkout, promoções) consomem; não são interfaces de domínio, e sim os pontos de entrada que cada módulo expõe. Assinaturas reais:
+
+```java
+// catalogo.aplicacao: contrato do Composite para carrinho, checkout e promoções (sem restrição de perfil)
+public class ConsultarItensVendaveis {
+    ItemVendavelInfo porSku(String sku);                  // 404 se não existir
+    List<ItemVendavelInfo> porSkus(Collection<String> skus); // ordem pedida, sem repetição
+}
+public record ItemVendavelInfo(Long id, String sku, String nome, Dinheiro preco, boolean ativo,
+        boolean disponivelParaVenda, Set<Long> categoriaIds, List<ComponenteEstoque> componentes) { }
+
+// estoque.aplicacao
+public class ReservarEstoque {
+    void para(Long pedidoId, Collection<ComponenteAReservar> componentes);  // tudo-ou-nada; EstoqueInsuficienteException (409)
+}
+public class MovimentarReservas {                         // idempotentes
+    void liberar(Long pedidoId);   // ATIVA -> LIBERADA
+    void baixar(Long pedidoId);    // ATIVA -> BAIXADA
+    void repor(Long pedidoId);     // BAIXADA -> REPOSTA
+}
+public class ConsultarSaldo {
+    SaldoEstoque porVariacao(Long variacaoId);
+    List<SaldoEstoque> porVariacoes(Collection<Long> variacaoIds);
+    List<SaldoEstoque> abaixoDe(int limite);
+}
+public class AjustarEstoque {
+    SaldoEstoque ajustar(Long variacaoId, int delta, String motivo);   // 409 se o disponível ficasse negativo
+}
+```
+
+- `ConsultarItensVendaveis` devolve a mesma visão para uma variação e para um combo; `componentes` são as variações e quantidades que **uma unidade** do item consome (`ItemVendavel.componentesDeEstoque(1)`), e `categoriaIds` traz a categoria do item e todas as ancestrais. O `ItemPreco` das promoções (seção 5.1) é montado a partir dessa visão na etapa 3. Ver o pattern em [04-design-patterns.md](04-design-patterns.md), seção 3.8.
+- `ReservarEstoque.para` recebe `ComponenteAReservar(variacaoId, quantidade)`, tipo do próprio `estoque`: quem reserva (o checkout; hoje, o pedido de demonstração) converte os `ComponenteEstoque` do catálogo, e assim o `estoque` não conhece o `catalogo`. Soma as quantidades por variação, processa em **ordem de variação** (evita deadlock entre pedidos que disputam as mesmas variações), usa um `UPDATE` condicional atômico (RN-21), e roda na transação do chamador: a exceção desfaz as reservas anteriores. Reservar duas vezes para o mesmo pedido responde 409.
+- `EstoqueInsuficienteException` estende `ConflitoException` e acrescenta ao Problem Details as propriedades `variacaoId` e `disponivel` (tipo `estoque-insuficiente`).
+- `ConsultarSaldo` é o que o `catalogo` usa para a disponibilidade (no sentido de dependência permitido, seção 3).
+
+### 5.11 Rotas e perfis do catálogo e do estoque (`implementado`, E2)
+
+Regras em `seguranca.infra.config.ConfiguracaoSeguranca`, avaliadas na ordem (vence a primeira) e antes da regra geral de `/api/admin/**`; os controllers repetem a restrição com `@PreAuthorize`.
+
+| Rota | Acesso |
+|---|---|
+| `GET /api/catalogo/**` (`categorias`, `produtos`, `produtos/{id}`, `combos`, `combos/{id}`) | público (sem token); escrita em `/api/catalogo/**` cai em `authenticated` |
+| `/api/admin/categorias/**`, `/api/admin/produtos/**`, `/api/admin/combos/**` | `ADMIN` e `OPERADOR_COMERCIAL` |
+| `/api/admin/estoque/**` | `ADMIN` e `ESTOQUE` |
+| `/api/admin/pedidos/**` | como na E4 (ver [07-casos-de-uso.md](07-casos-de-uso.md)) |
+| `/api/admin/**` (o restante: usuários e pagamento simulado) | somente `ADMIN` |
+
+As regras anteriores continuam valendo (`/api/admin/usuarios` segue só do `ADMIN`; os pedidos não foram abertos). As rotas e os casos de uso estão em [07-casos-de-uso.md](07-casos-de-uso.md) (UC-03 e UC-A01 a UC-A04).
 
 ## 6. Fluxo resumido (visão de módulos)
 
@@ -375,6 +440,8 @@ flowchart LR
 | Regra ArchUnit `compartilhadoNaoDependeDeModulosDeNegocio` (E4): `compartilhado..` não depende de `seguranca`, `cliente`, `pedido`, `promocao`, `preco`, `pagamento`, `entrega`, `notificacao` nem `infra.demo`; a dependência só vai dos módulos para o compartilhado | `implementado` (E4) |
 | Conflito (409) com tipo, título e propriedades extras genéricos: `ConflitoException` (em `compartilhado.dominio`, sem depender de web nem Spring) expõe `tipo()`, `titulo()` e `propriedades()`; cada módulo estende e enriquece, e o `TratadorGlobalDeErros` copia as propriedades para o Problem Details. `TransicaoInvalidaException` (`pedido.dominio`) acrescenta `situacaoAtual` e `operacao`. Evita que o `compartilhado` conheça tipos de um módulo | `implementado` (E4) |
 | Concorrência nas transições do pedido: lock otimista (`@Version`), com a falha de gravação convertida em `ConflitoException` (409) no adaptador `PedidoRepositoryJpa` | `implementado` (E4) |
-| Verificação de dependência circular entre módulos (ciclos de pacotes) | em aberto, avaliar a partir da E2 |
-| Mecanismo de concorrência de estoque | em aberto, decidido em E4 |
+| Regras ArchUnit da E2 (`RegrasDeArquiteturaTests`): `estoqueNaoDependeDoCatalogoExcetoOEventoDeVariacaoCadastrada` (`estoque..` só pode depender do pacote `catalogo.dominio.evento`), `catalogoNaoDependeDePedido` e `pedidoNaoDependeDeEstoqueNemDeCatalogo`. A dependência `catalogo` para `estoque` (disponibilidade) é permitida e não tem regra própria | `implementado` (E2) |
+| Verificação de dependência circular entre módulos (ciclos de pacotes) | em aberto. Na E2 o único par com dependência nos dois sentidos é `catalogo` e `estoque`, e o sentido `estoque` para `catalogo` é restrito pela regra ArchUnit ao pacote de evento |
+| Mecanismo de concorrência de estoque: atualização condicional atômica, com unicidade `(pedido_id, variacao_id)` e `CHECK` de saldo não negativo como última barreira | decidido e `implementado` na E2 (RN-21, ver [05-regras-negocio.md](05-regras-negocio.md)) |
+| Ouvintes do estoque síncronos (`@EventListener`) na transação de quem publica, em vez de `@TransactionalEventListener(AFTER_COMMIT)` | `implementado` (E2, ver [04-design-patterns.md](04-design-patterns.md), seção 3.6) |
 | Documentação da API via OpenAPI/Swagger (springdoc, com esquema Bearer) | `implementado` (E1); ver [10-execucao.md](10-execucao.md) |

@@ -11,7 +11,7 @@ context: |
   - O projeto deve usar pelo menos 6 Design Patterns, de mais de uma categoria, com no mínimo
     2 comportamentais e 1 de criação.
   - Patterns previstos (docs/04-design-patterns.md): Strategy (tipos de promoção, política de
-    conflito), Composite (condições de elegibilidade, categorias e combos), Chain of Responsibility
+    conflito), Composite (condições de elegibilidade e combos de produtos), Chain of Responsibility
     (pipeline de formação do preço), State (ciclo de vida do pedido), Adapter (gateways de pagamento
     e provedores de frete), Observer (eventos de domínio e notificações), Factory Method (criação de
     promoções a partir da configuração) e Facade (checkout).

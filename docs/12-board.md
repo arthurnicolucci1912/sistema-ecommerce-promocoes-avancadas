@@ -13,10 +13,9 @@
 
 | A fazer | Em andamento | Em revisão | Feito |
 |---|---|---|---|
-| `catalogo-estoque` (Lucas) | | `pedido-ciclo-vida` (Arthur) | `fundacao-projeto` (Arthur), arquivada em 2026-10-14 |
-| `carrinho-compras` (Lucas) | | | `estruturar-documentacao` (Arthur), arquivada em 2026-10-14 |
-| `checkout` (Arthur) | | | |
-| `promocoes-cupons` (Amanda) | | | |
+| `carrinho-compras` (Lucas) | | `catalogo-estoque`: implementado por Arthur (atribuição original: Lucas) | `fundacao-projeto` (Arthur), arquivada em 2026-10-14 |
+| `checkout` (Arthur) | | | `estruturar-documentacao` (Arthur), arquivada em 2026-10-14 |
+| `promocoes-cupons` (Amanda) | | | `pedido-ciclo-vida` (Arthur), arquivada em 2026-10-14 |
 | `pagamento-idempotencia` (Mateus) | | | |
 | `entrega-frete` (Mateus) | | | |
 | `eventos-notificacoes-auditoria`: eventos e notificações (Mateus) | | | |
@@ -24,7 +23,7 @@
 | `relatorios-gerenciais` (Lucas) | | | |
 | Reunião da onda 0: fechar contratos (todos) | | | |
 
-A ordem sequencial de execução das changes, com as dependências, está em [08-roadmap.md](08-roadmap.md) (seção 7). A etapa 4 do roadmap foi dividida em `pedido-ciclo-vida` (implementada, em revisão até o commit e o arquivamento) e `checkout` (depois de `carrinho-compras`).
+A ordem sequencial de execução das changes, com as dependências, está em [08-roadmap.md](08-roadmap.md) (seção 7). A etapa 4 do roadmap foi dividida em `pedido-ciclo-vida` (arquivada) e `checkout` (depois de `carrinho-compras`). A `catalogo-estoque` está em revisão até a verificação final e o arquivamento.
 
 ## Cartões por integrante
 
@@ -32,14 +31,14 @@ A ordem sequencial de execução das changes, com as dependências, está em [08
 | Cartão | Coluna | Depende de | Entregas | Patterns |
 |---|---|---|---|---|
 | `estruturar-documentacao` | Feito (arquivada em 2026-10-14) | nenhuma | `docs/` 01 a 11 | nenhum |
-| `fundacao-projeto` | Feito (arquivada em 2026-10-14) | nenhuma | Esqueleto, segurança JWT, cliente e endereços, contratos da onda 0, `10-execucao.md` | Contratos de Strategy, Composite, Chain of Responsibility, Adapter e Observer (D13) |
-| `pedido-ciclo-vida` | Em revisão (implementada; até o commit e o arquivamento) | `fundacao-projeto` | Pedido com snapshot, ciclo de vida de 8 estados, histórico, cancelamento por perfil, consultas, API do cliente e administrativa, eventos do pedido, pagamento simulado (temporário), diagrama de estados | State, Observer (publicador) |
+| `fundacao-projeto` | Feito (arquivada em 2026-10-14); implementada por Arthur, conforme planejado | nenhuma | Esqueleto, segurança JWT, cliente e endereços, contratos da onda 0, `10-execucao.md` | Contratos de Strategy, Composite, Chain of Responsibility, Adapter e Observer (D13) |
+| `pedido-ciclo-vida` | Feito (arquivada em 2026-10-14); implementada por Arthur, conforme planejado | `fundacao-projeto` | Pedido com snapshot, ciclo de vida de 8 estados, histórico, cancelamento por perfil, consultas, API do cliente e administrativa, eventos do pedido, pagamento simulado (temporário), diagrama de estados | State, Observer (publicador) |
 | `checkout` | A fazer | `catalogo-estoque` e `carrinho-compras` (e `pedido-ciclo-vida`, já pronta) | Checkout com revalidação, reserva de estoque tudo-ou-nada, uso de `CriarPedido` e `ConfirmarReservaDoPedido`, diagrama de sequência do checkout | Facade |
 
 ### Lucas Gomes
 | Cartão | Coluna | Depende de | Entregas | Patterns |
 |---|---|---|---|---|
-| `catalogo-estoque` | A fazer | `fundacao-projeto` | Produtos, variações, categorias em árvore, saldo de estoque, concorrência na última unidade | Composite (categorias e combos) |
+| `catalogo-estoque` | Em revisão: **implementado por Arthur (atribuição original: Lucas)** | `fundacao-projeto` | Produtos, variações, categorias em árvore, combos, saldo e reserva de estoque, concorrência na última unidade, ouvintes dos eventos do pedido e do catálogo | Composite (combos), Observer (ouvintes do estoque) |
 | `carrinho-compras` | A fazer | `catalogo-estoque` | Carrinho, recálculo, primeiras etapas do pipeline de preço | Chain of Responsibility |
 | `relatorios-gerenciais` | A fazer | `checkout`, `promocoes-cupons` | Vendas, ticket médio, mais vendidos, desconto por campanha | nenhum |
 
@@ -55,6 +54,18 @@ A ordem sequencial de execução das changes, com as dependências, está em [08
 | `pagamento-idempotencia` | A fazer | contratos da onda 0. Integra com `checkout` e `pedido-ciclo-vida`; remove o pagamento simulado | Gateways simulados, confirmação idempotente, pagamento recusado, diagrama de sequência de pagamento | Adapter |
 | `entrega-frete` | A fazer | contratos da onda 0 | Provedores de frete simulados, cotação, frete grátis via promoção | Adapter |
 | Eventos e notificações (parte de `eventos-notificacoes-auditoria`) | A fazer | `pagamento-idempotencia` | Publicação de eventos de domínio, canais de notificação simulados | Observer |
+
+### Quem implementou (situação real)
+
+A atribuição original (colunas acima e [11-divisao-equipe.md](11-divisao-equipe.md)) não foi alterada. Até agora todas as changes foram implementadas por Arthur:
+
+| Change | Atribuída a | Implementada por |
+|---|---|---|
+| `fundacao-projeto` | Arthur | Arthur (conforme planejado) |
+| `pedido-ciclo-vida` | Arthur | Arthur (conforme planejado) |
+| `catalogo-estoque` | Lucas | Arthur (atribuição original: Lucas); em revisão |
+
+As demais changes não foram iniciadas.
 
 ## Marcos
 

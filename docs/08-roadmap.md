@@ -2,7 +2,7 @@
 
 - **Objetivo:** organizar a construção do sistema em 9 etapas incrementais, cada uma mapeada para uma futura change do OpenSpec, indicando escopo, documentos a atualizar, patterns introduzidos e o critério de "sistema executável" ao final. Atende à exigência do enunciado de desenvolvimento incremental com o sistema sempre executável.
 - **Etapas do roadmap relacionadas:** todas (este é o documento do roadmap).
-- **Status:** proposto (ordem e divisão podem ser revistas, registrando o motivo, na change da etapa afetada). A etapa 1 foi arquivada; a etapa 4 foi dividida em duas changes, `pedido-ciclo-vida` (implementada, em revisão até o commit e o arquivamento) e `checkout` (a fazer, depois de `carrinho-compras`). A sequência de execução está na seção 7.
+- **Status:** proposto (ordem e divisão podem ser revistas, registrando o motivo, na change da etapa afetada). As etapas 1 e 4a (`fundacao-projeto` e `pedido-ciclo-vida`) foram arquivadas; a etapa 2 (`catalogo-estoque`) está implementada e em revisão (verificação final pendente), feita por Arthur embora a atribuição original seja do Lucas; a etapa 4 foi dividida em duas changes, `pedido-ciclo-vida` (arquivada) e `checkout` (a fazer, depois de `carrinho-compras`). A sequência de execução está na seção 7.
 
 Documentos relacionados: [07-casos-de-uso.md](07-casos-de-uso.md), [09-testes.md](09-testes.md), [10-execucao.md](10-execucao.md), [05-regras-negocio.md](05-regras-negocio.md), [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md).
 
@@ -34,7 +34,7 @@ flowchart LR
 | # | Etapa | Change OpenSpec sugerida | Patterns que entram |
 |---|---|---|---|
 | 1 | Fundação | `fundacao-projeto` | nenhum obrigatório |
-| 2 | Catálogo e estoque | `catalogo-estoque` | Composite (categorias e combos/kits) |
+| 2 | Catálogo e estoque | `catalogo-estoque` (implementada; em revisão) | Composite (combos), Observer (ouvintes do estoque) |
 | 3 | Carrinho | `carrinho-compras` | Chain of Responsibility (pipeline de preço, passos iniciais) |
 | 4a | Pedido e ciclo de vida | `pedido-ciclo-vida` (implementada) | State, Observer (lado publicador) |
 | 4b | Checkout | `checkout` | Facade |
@@ -69,8 +69,9 @@ Os patterns e suas justificativas estão em [04-design-patterns.md](04-design-pa
   - Consulta de catálogo (UC-03) e gestão administrativa de catálogo, categorias e preços (UC-A01 a UC-A03).
   - Estoque por variação: disponível, reservado, baixado; ajuste de estoque (UC-A04).
   - Operação de reserva/liberação/baixa no serviço de estoque, com proteção de concorrência (atualização condicional atômica ou lock otimista, a decidir; ver [05-regras-negocio.md](05-regras-negocio.md)). A reserva só será acionada pelo checkout (etapa 4), mas o mecanismo e seu teste de concorrência nascem aqui.
-- **Documentos a atualizar:** `02-modelo-dominio.md`, `03-arquitetura.md`, `04-design-patterns.md` (Composite), `05-regras-negocio.md` (estoque), `07-casos-de-uso.md`, `09-testes.md`.
-- **Patterns que entram:** Composite (hierarquia de categorias e produto simples vs. combo/kit).
+- **Documentos a atualizar:** `02-modelo-dominio.md`, `03-arquitetura.md`, `04-design-patterns.md` (Composite e Observer), `05-regras-negocio.md` (estoque), `07-casos-de-uso.md`, `09-testes.md`, `10-execucao.md`.
+- **Patterns que entram:** Composite (combos: item vendável, com a variação como folha e o combo como composto) e Observer (ouvintes do estoque: `OuvinteDePedidosDoEstoque` e `OuvinteDeCatalogoDoEstoque`). As categorias são uma árvore simples e **não** usam pattern.
+- **Situação:** implementada pela change `catalogo-estoque` (responsável original: Lucas; implementada por Arthur), em revisão até a verificação final e o arquivamento. A reserva só é acionada pelo checkout (etapa 4b); até lá, só o pedido de demonstração a usa.
 - **Critério de sistema executável:** administrador cadastra categorias, produtos, variações e estoque; cliente consulta o catálogo por categoria (incluindo subcategorias); a regra de reserva rejeita quantidade acima do disponível e resiste a requisições concorrentes pela última unidade.
 
 ### Etapa 3 - Carrinho
@@ -89,7 +90,7 @@ Os patterns e suas justificativas estão em [04-design-patterns.md](04-design-pa
 A etapa foi dividida porque o pedido (snapshot, ciclo de vida, cancelamento, histórico e consultas) não depende de nenhum outro módulo, e o checkout depende do carrinho e do estoque, que ainda não existem. O pedido é entregue primeiro (4a), e deixa pronto o ponto de integração (`CriarPedido` e `ConfirmarReservaDoPedido`) que o checkout (4b) vai usar. Responsável pelas duas: Arthur ([11-divisao-equipe.md](11-divisao-equipe.md)).
 
 #### 4a. Pedido e ciclo de vida
-- **Change:** `pedido-ciclo-vida` (Arthur). **Situação:** implementada; em revisão até o commit e o arquivamento.
+- **Change:** `pedido-ciclo-vida` (Arthur). **Situação:** implementada por Arthur, conforme planejado, e arquivada em 2026-10-14.
 - **Escopo (implementado):**
   - Módulo `pedido` com o agregado `Pedido` e o snapshot comercial imutável (itens, preços unitários, descontos, frete, totais e endereço de entrega copiado), conferido na criação.
   - Ciclo de vida com 8 estados e 11 transições válidas, pelo pattern State; transição inválida responde 409 com `situacaoAtual` e `operacao` (ver [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md)).
@@ -99,7 +100,7 @@ A etapa foi dividida porque o pedido (snapshot, ciclo de vida, cancelamento, his
   - Eventos de domínio de cada transição (`PedidoCriado`, `PedidoPago`, `PedidoPagamentoRecusado`, `PedidoEmPreparacao`, `PedidoEnviado`, `PedidoEntregue`, `PedidoCancelado`): lado publicador do Observer.
   - **Temporário:** endpoint administrativo de pagamento simulado, que a etapa 6 remove.
   - Pedido de demonstração do `cliente@demo.local` no perfil `dev`.
-- **Fora do escopo (próximas changes):** checkout, reserva, baixa e reposição de estoque, estorno e expiração automática do pagamento; os efeitos sobre outros módulos serão ouvintes dos eventos.
+- **Fora do escopo (próximas changes):** checkout, reserva, baixa e reposição de estoque, estorno e expiração automática do pagamento; os efeitos sobre outros módulos serão ouvintes dos eventos. (Os efeitos de estoque entraram depois, na etapa 2, como ouvintes, sem alterar o módulo `pedido`.)
 - **Documentos atualizados:** `02-modelo-dominio.md`, `03-arquitetura.md`, `04-design-patterns.md` (State e publicador do Observer), `05-regras-negocio.md` (RN-23, RN-26, RN-28), `06-ciclo-vida-pedido.md`, `07-casos-de-uso.md`, `09-testes.md`, `10-execucao.md`, `12-board.md`.
 - **Patterns que entram:** State (ciclo de vida do pedido) e Observer (publicador, com os ouvintes nas etapas seguintes).
 - **Critério de sistema executável:** o pedido de demonstração em `AGUARDANDO_PAGAMENTO` vai a `PAGO` pela simulação, avança até `ENVIADO` com `estoque@demo.local`, o cancelamento nesse estado responde 409 e o histórico é consultado pelo cliente; transição inválida gera erro e o cancelamento respeita o perfil.
@@ -261,8 +262,8 @@ Ordem em que as changes são executadas (uma depois da outra, cada uma com o sis
 
 | Ordem | Change | Responsável | Depende de | Situação |
 |:-:|---|---|---|---|
-| 1 | `pedido-ciclo-vida` | Arthur | `fundacao-projeto` (arquivada) | implementada; em revisão até o commit e o arquivamento |
-| 2 | `catalogo-estoque` | Lucas | `fundacao-projeto` | a fazer |
+| 1 | `pedido-ciclo-vida` | Arthur | `fundacao-projeto` (arquivada) | arquivada (2026-10-14); implementada por Arthur, conforme planejado |
+| 2 | `catalogo-estoque` | Lucas (atribuição original); implementada por Arthur | `fundacao-projeto` | implementada; em revisão até a verificação final e o arquivamento |
 | 3 | `carrinho-compras` | Lucas | `catalogo-estoque` | a fazer |
 | 4 | `checkout` | Arthur | `pedido-ciclo-vida`, `catalogo-estoque` (reserva) e `carrinho-compras` | a fazer |
 | 5 | `promocoes-cupons` | Amanda | `carrinho-compras` (pipeline de preço) e `checkout` (descontos registrados no pedido) | a fazer |

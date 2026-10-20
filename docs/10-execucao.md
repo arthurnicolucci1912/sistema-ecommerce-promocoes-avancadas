@@ -2,7 +2,7 @@
 
 - **Objetivo:** reunir as instruções para compilar, configurar e executar o sistema, e para rodar os testes e a demonstração. O enunciado exige instruções de execução na entrega final.
 - **Etapas do roadmap relacionadas:** etapa 1 (fundação) preenche a maior parte; as etapas 2 a 9 complementam (dados de demonstração, novos endpoints, relatórios). Ver [08-roadmap.md](08-roadmap.md).
-- **Status:** implementado (E1), com o pedido de demonstração e a simulação de pagamento da E4 (seção 6.1). As etapas seguintes continuam a preencher a seção 8.
+- **Status:** implementado (E1), com o pedido de demonstração e a simulação de pagamento da E4 (seção 6.1) e o catálogo e o estoque de demonstração da E2 (seção 6.2). As etapas seguintes continuam a preencher a seção 8.
 
 ## 1. Pré-requisitos
 
@@ -34,7 +34,7 @@ Para parar: `docker compose down` (mantém os dados). Para apagar também os dad
 
 ### Migrações Flyway
 
-As migrações ficam em `src/main/resources/db/migration` (convenção `V<n>__descricao.sql`; a E1 traz `V1__usuarios_clientes_enderecos.sql` e a E4 traz `V2__pedidos.sql`, com as tabelas do pedido). Rodam automaticamente na subida da aplicação, e o Hibernate apenas **valida** o esquema (`ddl-auto: validate`).
+As migrações ficam em `src/main/resources/db/migration` (convenção `V<n>__descricao.sql`; a E1 traz `V1__usuarios_clientes_enderecos.sql`, a E4 traz `V2__pedidos.sql`, com as tabelas do pedido, e a E2 traz `V3__catalogo_estoque.sql`, com catálogo, combos, saldo e reservas de estoque). Rodam automaticamente na subida da aplicação, e o Hibernate apenas **valida** o esquema (`ddl-auto: validate`).
 
 ## 3. Executar a aplicação (perfil `dev`)
 
@@ -45,7 +45,7 @@ As migrações ficam em `src/main/resources/db/migration` (convenção `V<n>__de
 O perfil `dev`:
 - conecta em `jdbc:postgresql://localhost:5432/ecommerce` com `ecommerce`/`ecommerce` (valores padrão, sobrescritos por `DB_URL`, `DB_USER` e `DB_PASSWORD` se definidos);
 - usa um segredo JWT **fixo e inseguro** (`application-dev.yml`), válido só para desenvolvimento local;
-- carrega os usuários de demonstração (seção 6).
+- carrega os usuários, o catálogo e o estoque de demonstração e o pedido de exemplo (seções 6, 6.1 e 6.2).
 
 A aplicação responde na porta 8080.
 
@@ -104,17 +104,40 @@ Roteiro rápido: entre como `cliente@demo.local`, consulte `GET /api/clientes/me
 
 ### 6.1 Pedido de demonstração e ciclo de vida (E4)
 
-No perfil `dev`, `cliente@demo.local` também recebe **um pedido de exemplo** em `AGUARDANDO_PAGAMENTO` (valores fictícios: 2 x Camiseta Básica a R$ 59,90 e 1 x Caneca a R$ 34,90, subtotal R$ 154,70, frete R$ 18,50, total R$ 173,20, com o endereço principal do cliente copiado). Ele existe porque ainda não há checkout (etapa 4, change `checkout`): é criado pelos mesmos serviços que o checkout usará (`CriarPedido` e `ConfirmarReservaDoPedido`), **uma única vez** (só se o cliente ainda não tem pedidos; reiniciar a aplicação não o duplica) e **nunca fora do perfil `dev`**.
+No perfil `dev`, `cliente@demo.local` também recebe **um pedido de exemplo** em `AGUARDANDO_PAGAMENTO` (valores fictícios: 2 x Camiseta Básica a R$ 59,90 e 1 x Caneca a R$ 34,90, subtotal R$ 154,70, frete R$ 18,50, total R$ 173,20, com o endereço principal do cliente copiado). Ele existe porque ainda não há checkout (etapa 4, change `checkout`): usa os SKUs reais do catálogo (seção 6.2), **reserva o estoque** (`ReservarEstoque`) e é criado pelos mesmos serviços que o checkout usará (`CriarPedido` e `ConfirmarReservaDoPedido`), na mesma transação e **uma única vez** (só se o cliente ainda não tem pedidos; reiniciar a aplicação não o duplica) e **nunca fora do perfil `dev`**.
 
 Roteiro (Swagger ou `curl`; troque de token em **Authorize** ao mudar de usuário):
 
 1. Como `cliente@demo.local`: `GET /api/clientes/me/pedidos` lista o pedido de demonstração (anote o `id`); `GET /api/clientes/me/pedidos/{id}` mostra itens, totais, endereço e o histórico (uma entrada de criação, de nulo para `CRIADO`, e a de `AGUARDANDO_PAGAMENTO`).
-2. **Simular o pagamento (TEMPORÁRIO).** Como `admin@demo.local`: `POST /api/admin/pedidos/{id}/pagamento-simulado` com `{"aprovado": true}` leva o pedido a `PAGO` (com `{"aprovado": false}` vai a `PAGAMENTO_RECUSADO`, que não é reaberto). Este endpoint existe só até a etapa 6 (`pagamento-idempotencia`), que o remove e passa a usar o gateway simulado; ele está marcado como temporário no Swagger.
+2. **Simular o pagamento (TEMPORÁRIO).** Como `admin@demo.local`: `POST /api/admin/pedidos/{id}/pagamento-simulado` com `{"aprovado": true}` leva o pedido a `PAGO` e o estoque dá baixa na reserva (com `{"aprovado": false}` vai a `PAGAMENTO_RECUSADO`, que não é reaberto, e a reserva é liberada; ver a seção 6.2 para conferir os saldos). Este endpoint existe só até a etapa 6 (`pagamento-idempotencia`), que o remove e passa a usar o gateway simulado; ele está marcado como temporário no Swagger.
 3. **Avançar o andamento com `estoque@demo.local`:** `POST /api/admin/pedidos/{id}/preparacao` (`EM_PREPARACAO`), `POST /api/admin/pedidos/{id}/envio` (`ENVIADO`) e `POST /api/admin/pedidos/{id}/entrega` (`ENTREGUE`). Chamar fora de ordem (por exemplo, `envio` num pedido `PAGO`) responde 409 com `situacaoAtual` e `operacao`.
 4. **Cancelamento e transição inválida.** Com o pedido `ENVIADO`, tentar `POST /api/clientes/me/pedidos/{id}/cancelamento` (cliente) ou `POST /api/admin/pedidos/{id}/cancelamento` (`admin@demo.local` ou `comercial@demo.local`), com `{"motivo": "teste"}`, responde 409. Em um pedido `PAGO` ou `EM_PREPARACAO`, o cliente recebe 409 e o administrativo cancela; em `AGUARDANDO_PAGAMENTO`, o cliente cancela (RN-26).
 5. Como `cliente@demo.local`, `GET /api/clientes/me/pedidos/{id}` mostra o histórico completo, com responsável e motivo de cada transição. Como `comercial@demo.local`, `GET /api/admin/pedidos?situacao=ENVIADO` filtra por situação.
 
-Para repetir o roteiro com um pedido novo em `AGUARDANDO_PAGAMENTO`, recrie o banco (`docker compose down -v` e suba de novo): o pedido de demonstração só é criado quando o cliente não tem pedidos. Estoque e estorno ainda não reagem às transições (ouvintes das etapas seguintes).
+Para repetir o roteiro com um pedido novo em `AGUARDANDO_PAGAMENTO` (e com a reserva de estoque dele), recrie o banco (`docker compose down -v` e suba de novo): o pedido de demonstração só é criado quando o cliente não tem pedidos. O **estoque** já reage às transições (baixa no pagamento aprovado, liberação na recusa e no cancelamento antes do pagamento, reposição no cancelamento depois do pagamento); o **estorno** ainda não (ouvinte da etapa 6).
+
+### 6.2 Catálogo e estoque de demonstração (E2)
+
+Criados **somente no perfil `dev`** pela `CatalogoDeDemonstracao`, com os casos de uso reais (dados fictícios). A carga é **idempotente por SKU**: reiniciar a aplicação não duplica nada nem soma estoque de novo (o estoque inicial só é lançado junto com a criação do produto).
+
+| Categoria | Produto (SKU) | Preço | Estoque inicial |
+|---|---|---|---|
+| Roupas > Camisetas | Camiseta Básica, variações P, M e G, cor Azul (`CAM-BAS-P`, `CAM-BAS-M`, `CAM-BAS-G`) | R$ 59,90 cada | 20 de cada |
+| Casa > Cozinha | Caneca de Cerâmica 300 ml (`CAN-CER-300`) | R$ 34,90 | 15 |
+| Casa > Cozinha | Café Especial 250 g (`CAF-ESP-250`) | R$ 29,90 | 30 |
+| Eletrônicos > Periféricos | Teclado Mecânico (`TEC-MEC-01`) | R$ 249,90 | **1** (para a demo da última unidade) |
+| (combo, sem categoria) | **Kit Café** (`KIT-CAFE`): 1 caneca + 2 cafés | R$ 79,90 | sem saldo próprio |
+
+Depois da carga e do pedido de demonstração (2 x `CAM-BAS-M` e 1 x `CAN-CER-300` reservados), os saldos são: Camiseta M 18 disponíveis e 2 reservados, Caneca 14 e 1, demais como na tabela. A disponibilidade do Kit Café é o mínimo de `disponivel / quantidade` entre os componentes: caneca 14 / 1 e café 30 / 2 = 15, ou seja, **14**.
+
+**Roteiro (Swagger ou `curl`).** Para achar os ids das variações, use o detalhe público do produto.
+
+1. **Vitrine, sem token.** `GET /api/catalogo/categorias` (árvore); `GET /api/catalogo/produtos?categoriaId=<id de Roupas>` lista a Camiseta Básica mesmo ela estando em uma subcategoria; `GET /api/catalogo/produtos/{id}` mostra as variações com `disponivel`; `GET /api/catalogo/combos` mostra o Kit Café com `disponibilidade` 14.
+2. **Estoque baixo, como `estoque@demo.local`.** `GET /api/admin/estoque?abaixoDe=5` lista só o Teclado (disponível 1). O mesmo pedido com `comercial@demo.local` responde 403.
+3. **Baixa, liberação e reposição do pedido de demonstração** (consulte `GET /api/admin/estoque/{variacaoId}` da `CAM-BAS-M` depois de cada passo): com o pedido em `AGUARDANDO_PAGAMENTO` o saldo é 18 e 2 reservados; `POST /api/admin/pedidos/{id}/pagamento-simulado` com `{"aprovado": true}` (`admin@demo.local`) leva a 18 e 0 reservados (baixa); cancelar o pedido `PAGO` com `POST /api/admin/pedidos/{id}/cancelamento` repõe para 20 e 0. Em um pedido recusado (`{"aprovado": false}`) ou cancelado antes do pagamento, a reserva é liberada e o saldo volta para 20 e 0.
+4. **Roteiro da última unidade (Teclado).** (a) Sem token, `GET /api/catalogo/produtos?nome=Teclado` mostra `disponivel: 1` na variação `TEC-MEC-01` (anote o `id` dela). (b) Como `estoque@demo.local`, `GET /api/admin/estoque/{id}` mostra 1 disponível e 0 reservado. (c) `POST /api/admin/estoque/{id}/ajustes` com `{"quantidade": -2, "motivo": "teste"}` responde 409 (deixaria o estoque negativo) e o saldo continua 1; com `{"quantidade": -1, ...}` vai a 0, e `{"quantidade": 5, ...}` registra uma entrada. (d) A **disputa** pela última unidade não tem rota HTTP porque a reserva é do checkout (etapa 4): ela é demonstrada pelo teste de concorrência, `./mvnw test -Dtest=ReservaConcorrenteTests` (10 threads pela única unidade: exatamente 1 sucesso e 9 `EstoqueInsuficienteException`, saldo final 0 disponível e 1 reservado; o teste exige Docker).
+
+> **Aviso: recriar a carga.** Alterar o estoque (como no passo 4) ou pagar o pedido de demonstração muda os saldos e, como a carga só semeia o que não existe, reiniciar a aplicação **não** restaura os valores originais. Para voltar ao estado inicial (Teclado com 1 unidade, pedido de demonstração com reserva), recrie o banco: `docker compose down -v` e suba de novo. Isso também é necessário se o banco foi criado antes da E2: o pedido de demonstração antigo não tem reserva, e a carga não cria outro pedido enquanto o cliente já tiver um.
 
 ## 7. Build e testes
 
@@ -131,7 +154,7 @@ Para repetir o roteiro com um pedido novo em `AGUARDANDO_PAGAMENTO`, recrie o ba
 
 | Etapa | O que acrescentar aqui |
 |---|---|
-| 2 a 3 | Carga de dados de demonstração do catálogo e do estoque. |
+| 3 | Carrinho de demonstração com os itens do catálogo (a carga do catálogo e do estoque já está na seção 6.2). |
 | 5 | Promoções e cupons de demonstração. |
 | 4 (`checkout`) | Como concluir um checkout de ponta a ponta (hoje o pedido de demonstração da seção 6.1 faz o papel dele). |
 | 6 | Como simular a confirmação de pagamento pelo gateway (aprovada, recusada e repetida); substitui o endpoint temporário `pagamento-simulado` da seção 6.1. |
@@ -148,3 +171,4 @@ Para repetir o roteiro com um pedido novo em `AGUARDANDO_PAGAMENTO`, recrie o ba
 | A aplicação falha na subida reclamando do segredo JWT | Fora do `dev`, defina `APP_JWT_SECRET` com 32 caracteres ou mais; ou rode com o perfil `dev`. |
 | Testes de integração falham ao iniciar o contêiner | O Docker não está em execução ou o usuário não tem permissão para usá-lo. |
 | Falha de validação de esquema após trocar de branch | O volume do banco tem um esquema antigo: `docker compose down -v` e suba de novo. |
+| O Teclado não está mais com 1 unidade, ou o pedido de demonstração não tem reserva de estoque | A carga é idempotente e não restaura saldos, e o pedido de demonstração só é criado se o cliente não tem pedidos: `docker compose down -v` e suba de novo (seção 6.2). |

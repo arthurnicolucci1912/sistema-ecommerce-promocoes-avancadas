@@ -2,7 +2,7 @@
 
 - **Objetivo:** mapear os cenários de teste exigidos pelo enunciado (e os necessários para validar as regras de negócio) para a etapa do roadmap em que serão implementados e para o tipo de teste (unitário ou integração).
 - **Etapas do roadmap relacionadas:** todas; cada cenário indica sua etapa (ver [08-roadmap.md](08-roadmap.md)).
-- **Status:** proposto (a lista de cenários é a base mínima; cada change de etapa pode acrescentar casos e deve atualizar esta tabela). Cenários da E1 (T-SG-01 a T-SG-03) `implementado`, ver a seção 5. Cenários de pedido da E4 (T-PD-01 a T-PD-06 e o pedido em T-SG-01) `implementado` na change `pedido-ciclo-vida`, ver a seção 6.
+- **Status:** proposto (a lista de cenários é a base mínima; cada change de etapa pode acrescentar casos e deve atualizar esta tabela). Cenários da E1 (T-SG-01 a T-SG-03) `implementado`, ver a seção 5. Cenários de pedido da E4 (T-PD-01 a T-PD-06 e o pedido em T-SG-01) `implementado` na change `pedido-ciclo-vida`, ver a seção 6. Cenários de estoque e catálogo da E2 (T-ES-01, T-ES-02, T-ES-05 (mecanismo), T-ES-06 e T-ES-07 (ouvintes), T-ES-08 e T-CT-01 a T-CT-12) `implementado` na change `catalogo-estoque`, ver a seção 7.
 
 Documentos relacionados: [05-regras-negocio.md](05-regras-negocio.md) (regras testadas), [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md) (transições), [07-casos-de-uso.md](07-casos-de-uso.md) (fluxos).
 
@@ -14,7 +14,7 @@ Documentos relacionados: [05-regras-negocio.md](05-regras-negocio.md) (regras te
 - **Integração:** sobe o contexto Spring e usa um banco PostgreSQL real para validar persistência, transações, restrições de unicidade, concorrência e a API HTTP com segurança. **Decidido na E1: Testcontainers com PostgreSQL 17** (contêiner descartável, mesma versão do `docker-compose.yml`, esquema criado pelas migrações Flyway; exige Docker em execução, ver [10-execucao.md](10-execucao.md)). Os testes usam a anotação `@TesteDeIntegracao` e o perfil `test`; não há banco em memória.
 - **Integrações externas simuladas:** gateways de pagamento, provedores de frete e canais de notificação são substituídos por mocks, stubs ou implementações simuladas. Nenhum teste depende de serviço externo real nem de dados reais de cartão.
 - **Relógio controlável:** validade de promoções e cupons usa um `Clock` injetável para testar vigência e expiração de forma determinística.
-- **Testes de arquitetura (ArchUnit)**, `implementado` na E1: `arquitetura.RegrasDeArquiteturaTests` verifica que `dominio` não depende de `web`, `infra`, `aplicacao` nem de `org.springframework.web`, `stereotype` e `context`; que `web` não depende de `infra`; e que os contratos da onda 0 são interfaces e só têm implementação concreta em `infra`.
+- **Testes de arquitetura (ArchUnit)**, `implementado` na E1: `arquitetura.RegrasDeArquiteturaTests` verifica que `dominio` não depende de `web`, `infra`, `aplicacao` nem de `org.springframework.web`, `stereotype` e `context`; que `web` não depende de `infra`; e que os contratos da onda 0 são interfaces e só têm implementação concreta em `infra`. Na E4 acrescentou `compartilhadoNaoDependeDeModulosDeNegocio` e na E2 as regras entre `estoque`, `catalogo` e `pedido` (seção 7).
 - **Nomes de teste** descrevem o cenário em português (por exemplo, `rejeitaCupomExpirado`), de modo que a lista de testes funcione como documentação.
 - Cada change de etapa implementa os cenários marcados para sua etapa e mantém verdes os das anteriores (o sistema permanece executável).
 
@@ -58,14 +58,14 @@ Política de conflito (D4): filtrar elegíveis; havendo exclusiva, aplica só a 
 
 | ID | Cenário | Resultado esperado | Etapa | Tipo |
 |---|---|---|---|---|
-| T-ES-01 | Reservar quantidade menor ou igual ao disponível | Disponível diminui e reservado aumenta na mesma quantidade | 2 | U, I |
-| T-ES-02 | Estoque insuficiente na reserva | Reserva rejeitada, estoque inalterado | 2 | U |
+| T-ES-01 | Reservar quantidade menor ou igual ao disponível | Disponível diminui e reservado aumenta na mesma quantidade | 2 (`implementado`) | U, I |
+| T-ES-02 | Estoque insuficiente na reserva | Reserva rejeitada, estoque inalterado | 2 (`implementado`) | U, I |
 | T-ES-03 | Checkout com estoque insuficiente em um item de vários | Checkout rejeitado com indicação do item; nenhuma reserva parcial (tudo-ou-nada); nenhum pedido criado | 4 | I |
 | T-ES-04 | Estoque some entre a inclusão no carrinho e o checkout | O carrinho aceita; o checkout rejeita (a verificação no carrinho não garante disponibilidade) | 4 | I |
-| T-ES-05 | **Concorrência na última unidade:** N requisições simultâneas (por exemplo 10 threads) para reservar 1 unidade restante | Exatamente 1 sucesso e N-1 falhas por estoque insuficiente; disponível nunca negativo | 2 (mecanismo), 4 (via checkout) | I |
-| T-ES-06 | Liberar reserva por cancelamento, pagamento recusado ou expiração | Disponível restaurado, reservado reduzido; liberar duas vezes não restaura duas vezes | 4, 6 | U, I |
-| T-ES-07 | Pagamento aprovado converte reserva em baixa | Reservado reduzido e baixa registrada, sem alterar o disponível uma segunda vez | 6 | I |
-| T-ES-08 | Ajuste administrativo deixaria disponível negativo ou abaixo do reservado | Ajuste rejeitado | 2 | U |
+| T-ES-05 | **Concorrência na última unidade:** N requisições simultâneas (por exemplo 10 threads) para reservar 1 unidade restante | Exatamente 1 sucesso e N-1 falhas por estoque insuficiente; disponível nunca negativo | 2 (mecanismo, `implementado`), 4 (via checkout) | I |
+| T-ES-06 | Liberar reserva por cancelamento, pagamento recusado ou expiração | Disponível restaurado, reservado reduzido; liberar duas vezes não restaura duas vezes | 2 (ouvintes, `implementado`: recusa e cancelamento), 6 (expiração) | U, I |
+| T-ES-07 | Pagamento aprovado converte reserva em baixa | Reservado reduzido e baixa registrada, sem alterar o disponível uma segunda vez | 2 (ouvinte de `PedidoPago`, `implementado`), 6 (pelo gateway) | I |
+| T-ES-08 | Ajuste administrativo deixaria disponível negativo | Ajuste rejeitado (409) e saldo inalterado. O "abaixo do reservado" do rascunho não se aplica: `disponivel` já exclui o reservado | 2 (`implementado`) | U, I |
 
 ### 2.4 Cupons inválidos
 
@@ -135,8 +135,8 @@ Os cenários T-PD-01 a T-PD-06 estão `implementado` na E4 (classes na seção 6
 |---|---|---|
 | Cada tipo de promoção (pelo menos 4) | T-PR-01 a T-PR-05 (e T-PR-06 a T-PR-10 de apoio) | 5 |
 | Múltiplas promoções simultâneas e conflito | T-CF-01 a T-CF-08 | 5 (e 7) |
-| Estoque insuficiente | T-ES-02, T-ES-03, T-ES-04 | 2, 4 |
-| Concorrência na última unidade | T-ES-05 | 2, 4 |
+| Estoque insuficiente | T-ES-02 (`implementado`, seção 7), T-ES-03, T-ES-04 | 2, 4 |
+| Concorrência na última unidade | T-ES-05 (mecanismo `implementado`, seção 7) | 2, 4 |
 | Cupom inválido (inexistente, expirado, limite, incompatível) | T-CU-01 a T-CU-04 | 5 |
 | Pagamento recusado | T-PG-01 | 6 |
 | Transição inválida de pedido | T-PD-02, T-PD-04, T-PD-06 (`implementado`, seção 6) | 4 |
@@ -147,7 +147,7 @@ Os cenários T-PD-01 a T-PD-06 estão `implementado` na E4 (classes na seção 6
 | Etapa | Cenários |
 |---|---|
 | 1 Fundação | T-SG-01 (base), T-SG-02 (base), T-SG-03 (`implementado`, ver a seção 5) |
-| 2 Catálogo e estoque | T-ES-01, T-ES-02, T-ES-05 (mecanismo), T-ES-08 |
+| 2 Catálogo e estoque | T-ES-01, T-ES-02, T-ES-05 (mecanismo), T-ES-08, T-ES-06 e T-ES-07 (pelos ouvintes), T-CT-01 a T-CT-12 (`implementado` na change `catalogo-estoque`, seção 7) |
 | 3 Carrinho | recálculo do carrinho, itens inválidos e composição do preço (acrescentar IDs `T-CA-xx` ao implementar) |
 | 4 Checkout e pedido | T-ES-03, T-ES-04, T-ES-05 (via checkout), T-ES-06, T-PD-01 a T-PD-06 (`implementado` na change `pedido-ciclo-vida`, seção 6), T-SG-01 (pedido `implementado`) |
 | 5 Promoções e cupons | T-PR-01 a T-PR-10, T-CF-01 a T-CF-08, T-CU-01 a T-CU-07, T-SG-02 |
@@ -213,3 +213,52 @@ Demais cenários do pedido cobertos na E4:
 | Regra de arquitetura nova: `compartilhado` não depende de módulos de negócio | `arquitetura.RegrasDeArquiteturaTests` (`compartilhadoNaoDependeDeModulosDeNegocio`) |
 
 Apoio de teste (não são testes): `pedido.PedidosParaTeste`, `pedido.PedidosPersistidosParaTeste` e `pedido.CapturaDeEventosDoPedido`.
+
+## 7. Cobertura do catálogo e do estoque na E2 (`implementado`)
+
+Change `catalogo-estoque`. Pacotes abaixo de `br.com.fatec.ecommerce`; os testes de integração usam Testcontainers (PostgreSQL 17), e os de domínio do Composite e da árvore de categorias rodam sem Spring nem banco.
+
+### 7.1 Estoque
+
+| ID | Cobertura na E2 | Classes de teste |
+|---|---|---|
+| T-ES-01 | Reserva bem-sucedida move do disponível para o reservado; componentes repetidos da mesma variação são somados; reservar duas vezes para o mesmo pedido é rejeitado e sem efeito. | `estoque.aplicacao.ReservarEstoqueTests` (`reservaBemSucedidaMoveDoDisponivelParaOReservado`, `componentesRepetidosDaMesmaVariacaoSaoSomados`, `reservarDuasVezesParaOMesmoPedidoEhRejeitadoESemEfeito`) |
+| T-ES-02 | Estoque insuficiente em um componente de vários: a exceção informa a variação e o disponível, e **nenhum** saldo é alterado (tudo-ou-nada); variação sem saldo conta como disponível zero; componentes inválidos são rejeitados. | `estoque.aplicacao.ReservarEstoqueTests` (`estoqueInsuficienteInformaOComponenteENaoAlteraNenhumSaldo`, `variacaoSemSaldoEhInsuficienteComDisponivelZero`, `somaDosComponentesRepetidosAcimaDoDisponivelEhInsuficiente`, `componentesInvalidosSaoRejeitados`) |
+| T-ES-05 | **Dez pedidos pela última unidade:** 10 threads com barreira de largada; exatamente 1 sucesso e 9 `EstoqueInsuficienteException`; saldo final 0 disponível e 1 reservado; repetido 3 vezes. A via checkout fica para a etapa 4. | `estoque.aplicacao.ReservaConcorrenteTests` (`@RepeatedTest(3)`) |
+| T-ES-06 | Liberar duas vezes devolve ao disponível uma única vez; pagamento recusado e cancelamento antes do pagamento liberam a reserva (pelo ouvinte, com os serviços reais do pedido). A expiração é da etapa 6. | `estoque.aplicacao.MovimentarReservasTests` (`liberarDuasVezesDevolveAoDisponivelUmaUnicaVez`), `estoque.aplicacao.OuvintesDoEstoqueTests` (`cancelamentoAntesDoPagamentoLiberaAReserva`, `pagamentoRecusadoLiberaAReserva`) |
+| T-ES-07 | Pagamento aprovado baixa a reserva: o reservado diminui, o disponível não muda, e a baixa repetida não tem efeito. Aqui a aprovação vem do pedido (`TransicionarPedido`); o gateway é da etapa 6. | `estoque.aplicacao.MovimentarReservasTests` (`baixaDiminuiOReservadoSemMudarODisponivelEEhIdempotente`), `estoque.aplicacao.OuvintesDoEstoqueTests` (`pagamentoAprovadoBaixaAReserva`) |
+| T-ES-08 | Ajuste que deixaria o disponível negativo responde 409 e o saldo não muda; ajuste zero ou sem motivo é inválido (400); saída até zero é permitida; ajuste de variação sem saldo é 404. | `estoque.aplicacao.AjusteEConsultaDeSaldoTests`, `estoque.web.EstoqueWebTests` (`ajusteQueDeixariaNegativoRespondeConflitoESemMotivoOuZeroRespondem400`) |
+
+Demais cenários do estoque cobertos na E2:
+
+| Assunto | Classes |
+|---|---|
+| Reposição desfaz uma baixa uma única vez; operações sem reserva aplicável e pedido sem reserva não mudam nada nem lançam erro | `estoque.aplicacao.MovimentarReservasTests` |
+| Observer do estoque: variação nova ganha saldo zero; ouvinte de catálogo não altera saldo existente; cancelamento depois do pagamento e em preparação repõe; transição rejeitada não altera o estoque; pedido sem reserva não quebra a transição | `estoque.aplicacao.OuvintesDoEstoqueTests` |
+| Consulta de saldo por variação e por várias; estoque baixo lista só os abaixo do limite (estritamente) | `estoque.aplicacao.AjusteEConsultaDeSaldoTests`, `estoque.web.EstoqueWebTests` |
+| Rotas e perfis do estoque: `ESTOQUE` e `ADMIN` operam; `OPERADOR_COMERCIAL` recebe 403; visitante, 401; `abaixoDe` ausente, 400 | `estoque.web.EstoqueWebTests` |
+| Esquema e restrições da migração `V3` (SKU único, preço maior que zero, tipo, nome de categoria único por pai, saldo não negativo, reserva única por pedido e variação, situação da reserva) | `infra.MigracaoV3Tests` |
+
+### 7.2 Catálogo
+
+| ID | Cenário | Resultado esperado | Classes de teste |
+|---|---|---|---|
+| T-CT-01 | Composite: componentes de estoque da variação e do combo, inclusive combo dentro de combo | Multiplicação em cadeia e agregação de variações repetidas | `catalogo.dominio.ItemVendavelCompositeTests` |
+| T-CT-02 | Composite: disponibilidade para venda | Combo com componente inativo, combo inativo, combo vazio e variação de produto inativo não estão disponíveis | `catalogo.dominio.ItemVendavelCompositeTests` |
+| T-CT-03 | Combo circular | Rejeitado (409): combo que contém a si mesmo, direta ou indiretamente; componente repetido | `catalogo.dominio.ItemVendavelCompositeTests`, `catalogo.aplicacao.GerenciarCombosTests` (`comboCircularEhConflitoAoAlterarOsComponentes`) |
+| T-CT-04 | **Extensibilidade do Composite** | Uma subclasse nova de `ItemVendavel` (`AssinaturaDeTeste`, só em `src/test`) é tratada por um combo e pelo cálculo de componentes sem nenhuma alteração nas classes existentes | `catalogo.dominio.ItemVendavelCompositeTests` (`novoTipoDeItemVendavelEhTratadoPeloComboSemAlterarClassesExistentes`, `novoTipoTambemParticipaDaAgregacaoComOutrasVariacoes`) |
+| T-CT-05 | Categorias em árvore | Ancestrais e descendentes; mover para si mesma ou para uma descendente é rejeitado; nome repetido entre irmãs rejeitado (sem diferenciar caixa) e permitido sob pais diferentes; remover categoria em uso é conflito | `catalogo.dominio.CategoriaTests`, `catalogo.aplicacao.GerenciarCategoriasTests` |
+| T-CT-06 | Produto com variações e combos | SKUs distintos e um evento por variação; novo tipo de característica sem configuração prévia; dados inválidos não gravam nada; SKU duplicado (inclusive variação contra combo, e violação no banco) é conflito; inativar produto inativa as variações; combo com preço e componentes alteráveis, inativação do combo não inativa os componentes | `catalogo.aplicacao.GerenciarProdutosTests`, `catalogo.aplicacao.GerenciarCombosTests` |
+| T-CT-07 | Consulta de item por SKU (contrato do Composite) | Variação e combo devolvem a mesma visão (preço, categorias ancestrais, componentes de uma unidade); combo dentro de combo agrega; item inativo; `porSkus` preserva a ordem e SKU inexistente é 404 | `catalogo.aplicacao.ConsultarItensVendaveisTests` |
+| T-CT-08 | Consulta pública | Filtro por categoria inclui subcategorias (sem token); filtro sem resultado devolve página vazia; filtros por nome e preço; paginação; disponibilidade no detalhe e do combo (mínimo dos componentes); produto ou combo inativo é 404 | `catalogo.aplicacao.ConsultarCatalogoTests`, `catalogo.web.CatalogoWebTests` (`consultaPublicaNaoExigeToken`, `produtoEComboInexistentesRespondem404`) |
+| T-CT-09 | Autorização do catálogo | `ESTOQUE` e cliente alteram o catálogo: 403; visitante: 401; a consulta pública segue aberta; `/api/admin/usuarios` continua só do `ADMIN` | `catalogo.aplicacao.AutorizacaoDoCatalogoTests`, `catalogo.web.CatalogoWebTests` |
+| T-CT-10 | Observer (publicador): `VariacaoCadastrada` | Publicado com o id da variação gravada, um por variação, e não publicado se o SKU for duplicado | `catalogo.dominio.VariacaoCadastradaTests`, `catalogo.aplicacao.CadastrarVariacaoTests` |
+| T-CT-11 | Persistência do Composite | Combo com variações e combo interno gravado e recarregado com os componentes certos; inativar o produto torna o combo indisponível | `catalogo.dominio.CompositePersistenciaTests` |
+| T-CT-12 | Demonstração do perfil `dev` | Categorias, produtos, variações, combo e estoque semeados; Teclado com 1 unidade; pedido de exemplo com reserva ativa; executar o runner duas vezes não duplica nem soma estoque; fora do `dev`, nada é semeado | `infra.demo.CatalogoDeDemonstracaoTests`, `infra.demo.UsuariosDeDemonstracaoTests`, `infra.demo.UsuariosDeDemonstracaoForaDoDevTests` |
+| Fluxo ponta a ponta | Categoria, produto com variações, combo e consulta pública com disponibilidade, pela API | `catalogo.web.CatalogoWebTests` (`fluxoCategoriaProdutoComVariacoesComboEConsultaPublicaComDisponibilidade`) |
+
+### 7.3 Regras de arquitetura da E2
+
+`arquitetura.RegrasDeArquiteturaTests`: `estoqueNaoDependeDoCatalogoExcetoOEventoDeVariacaoCadastrada` (o `estoque` só pode depender do pacote `catalogo.dominio.evento`), `catalogoNaoDependeDePedido` e `pedidoNaoDependeDeEstoqueNemDeCatalogo`. As regras passam (a task 5.2 da change registra também a confirmação de que falham com uma violação temporária, removida em seguida). Detalhes em [03-arquitetura.md](03-arquitetura.md), seção 7.
+
+Apoio de teste (não são testes): `catalogo.CatalogoParaTeste`, `catalogo.CatalogoPersistidoParaTeste`, `catalogo.CapturaDeEventosDoCatalogo` e `estoque.EstoqueParaTeste`.
