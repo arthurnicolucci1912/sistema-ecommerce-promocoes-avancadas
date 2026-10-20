@@ -2,7 +2,7 @@
 
 > **Objetivo:** descrever as entidades do domínio, seus relacionamentos e as decisões de modelagem sobre variações de produto, categorias hierárquicas, combos/kits e preservação do histórico comercial nos pedidos.
 > **Etapas do roadmap relacionadas:** E2 a E8 (cada etapa refina as entidades que introduz). Ver [08-roadmap.md](08-roadmap.md).
-> **Status:** parcialmente `implementado`: `Usuario`, `Cliente` e `Endereco` (E1) refletem o código e a migração `V1` (seção 1.1), e o agregado do pedido (E4, change `pedido-ciclo-vida`) reflete o código e a migração `V2` (seção 1.2). O restante é rascunho (diagrama preliminar; decisões marcadas como `proposto` podem mudar na etapa que implementa a entidade).
+> **Status:** parcialmente `implementado`: `Usuario`, `Cliente` e `Endereco` (E1) refletem o código e a migração `V1` (seção 1.1), o agregado do pedido (E4, change `pedido-ciclo-vida`) reflete o código e a migração `V2` (seção 1.2), e o catálogo e o estoque (E2, change `catalogo-estoque`) refletem o código e a migração `V3` (seção 1.3). O restante é rascunho (diagrama preliminar; decisões marcadas como `proposto` podem mudar na etapa que implementa a entidade).
 
 ## 1. Entidades e responsabilidades
 
@@ -11,12 +11,14 @@
 | Usuario | Credencial de acesso (e-mail, hash da senha, situação ativo/inativo) e um ou mais perfis (`CLIENTE`, `ADMIN`, `OPERADOR_COMERCIAL`, `ESTOQUE`, `PROMOCOES`). Pertence ao módulo `seguranca`. | E1 (`implementado`) |
 | Cliente | Dados cadastrais do comprador. Um usuário com perfil cliente possui um cliente; o cliente guarda `usuarioId`. | E1 (`implementado`) |
 | Endereco | Endereço de entrega do cliente. Um cliente tem um ou mais; apenas um é o principal. | E1 (`implementado`) |
-| Categoria | Nó da árvore de categorias (categoria pai opcional). | E2 |
-| Produto | Item do catálogo, com dados comuns: nome, descrição, marca e categoria. | E2 |
-| VariacaoProduto | Variação vendável de um produto (SKU), com preço próprio e atributos como tamanho, cor ou capacidade. É a unidade que entra no carrinho e no estoque. | E2 |
-| AtributoVariacao | Par nome/valor que descreve uma variação (por exemplo `cor = azul`). | E2 |
-| Estoque | Saldo de uma variação: quantidade disponível e quantidade reservada. | E2 |
-| ReservaEstoque | Reserva de unidades vinculada a um pedido, com situação (ativa, convertida em baixa, liberada, expirada). | E4 |
+| Categoria | Nó da árvore de categorias (categoria pai opcional). Árvore simples, sem pattern. | E2 (`implementado`) |
+| Produto | Item do catálogo, com dados comuns: nome, descrição, marca e uma categoria. Agrupa variações; não é vendável por si só. | E2 (`implementado`) |
+| ItemVendavel | Contrato comum de tudo o que se vende (SKU único no catálogo, nome, preço, situação). É o componente do Composite de itens vendáveis. | E2 (`implementado`) |
+| VariacaoProduto | Variação vendável de um produto (SKU), com preço próprio e atributos nome/valor como tamanho, cor ou capacidade (par `nome`/`valor`, sem classe própria). É a folha do Composite e a unidade que o estoque controla. | E2 (`implementado`) |
+| Combo | Conjunto vendido com SKU e preço próprios, composto por variações ou outros combos. É o composto do Composite. | E2 (`implementado`) |
+| ItemCombo | Componente de um combo: um `ItemVendavel` e a quantidade em que entra. | E2 (`implementado`) |
+| SaldoEstoque | Saldo de uma variação: quantidade disponível e quantidade reservada (nunca negativas). Guarda só o id da variação. | E2 (`implementado`) |
+| ReservaEstoque | Reserva de unidades de uma variação vinculada a um pedido (só o id do pedido), com situação `ATIVA`, `LIBERADA`, `BAIXADA` ou `REPOSTA`. | E2 (`implementado`); a expiração fica para a E6 |
 | Carrinho | Itens e quantidades de um cliente, mais cupom aplicado e valores calculados. Não reserva estoque. | E3 |
 | ItemCarrinho | Variação e quantidade dentro de um carrinho. | E3 |
 | Pedido | Resultado do checkout. Guarda a situação do ciclo de vida, os valores comerciais da compra e o endereço de entrega copiado. Agregado raiz (ver 1.2). | E4 (`implementado`) |
@@ -103,9 +105,58 @@ Tabelas criadas pela migração `V2__pedidos.sql`; as classes JPA estão em `ped
 
 Itens, descontos e histórico são coleções do agregado (`@OneToMany` com cascade e `orphanRemoval`, carregadas por `SUBSELECT`); a listagem usa um resumo (`ResumoPedido`: id, cliente, situação, total e data) que não as carrega. A migração e as restrições são verificadas por `infra.MigracaoV2Tests`.
 
-## 2. Diagrama de classes preliminar
+### 1.3 Catálogo e estoque como implementados (`implementado`, E2)
 
-O diagrama cobre cliente, endereço, produto, variação, categoria, estoque, carrinho, pedido, item do pedido, promoção, cupom, pagamento e entrega. Nomes e atributos são preliminares.
+Tabelas criadas pela migração `V3__catalogo_estoque.sql`; as classes JPA estão em `catalogo.dominio` e `estoque.dominio`. Valores monetários em `NUMERIC(12,2)` (`Dinheiro` no código). Pacotes e contratos em [03-arquitetura.md](03-arquitetura.md); o pattern em [04-design-patterns.md](04-design-patterns.md), seção 3.8.
+
+**`categoria`** (`Categoria`)
+
+| Campo | Tipo | Regras |
+|---|---|---|
+| `id` | `BIGINT` identidade | Chave primária. |
+| `nome` | `VARCHAR(100)`, obrigatório | **Único por pai, sem diferenciar maiúsculas**: índice único `ux_categoria_pai_nome` em `(COALESCE(pai_id, 0), LOWER(nome))`; as raízes compartilham o "pai 0". O mesmo nome pode repetir sob pais diferentes. |
+| `pai_id` | `BIGINT`, opcional | Autorreferência a `categoria`; nulo = categoria raiz. Mover valida que o novo pai não é a própria categoria nem uma descendente (sem ciclos). A remoção só é aceita sem subcategorias e sem produtos. |
+
+**`produto`** (`Produto`): `id`, `nome`, `descricao` (`TEXT`, opcional), `marca` (opcional), `categoria_id` (obrigatório, referencia `categoria`; índice `ix_produto_categoria`), `ativo` (padrão `true`) e `criado_em`. Inativar o produto inativa todas as suas variações; nada é excluído (o histórico de pedidos é preservado).
+
+**`item_vendavel`** (`ItemVendavel`): raiz da herança JPA **`JOINED`** do Composite. A variação e o combo compartilham o `id` desta tabela.
+
+| Campo | Tipo | Regras |
+|---|---|---|
+| `id` | `BIGINT` identidade | Chave primária, herdada pelas tabelas filhas. |
+| `sku` | `VARCHAR(60)`, obrigatório | **Único no catálogo inteiro** (`uk_item_vendavel_sku`): um SKU de variação não pode coincidir com o de outra variação nem com o de um combo. Não é alterável. |
+| `nome` | `VARCHAR(255)`, obrigatório | A variação deriva o nome do produto e dos valores dos atributos. |
+| `preco` | `NUMERIC(12,2)`, obrigatório | `CHECK (preco > 0)` (`ck_item_vendavel_preco`). |
+| `ativo` | `BOOLEAN`, padrão `true` | A inativação substitui a exclusão. |
+| `tipo` | `VARCHAR(20)`, obrigatório | Discriminador, `CHECK` restrito a `VARIACAO` ou `COMBO`. |
+
+**`variacao_produto`** (`VariacaoProduto`, folha): `id` (chave primária e FK para `item_vendavel`) e `produto_id` (obrigatório, FK para `produto`; índice `ix_variacao_produto_produto`). **`variacao_atributo`**: tabela de coleção dos atributos livres (nome/valor), chave primária `(variacao_id, nome)` e `valor` obrigatório; um tipo novo de característica não exige cadastro prévio.
+
+**`combo`** (`Combo`, composto): apenas `id` (chave primária e FK para `item_vendavel`). **`combo_item`** (`ItemCombo`): `id`, `combo_id` (FK para `combo`), `item_id` (FK para `item_vendavel`, ou seja, variação **ou outro combo**) e `quantidade`, com `CHECK (quantidade > 0)`, unicidade `(combo_id, item_id)` e `CHECK (combo_id <> item_id)`. O ciclo indireto (combo que contém um combo que o contém) é rejeitado pelo domínio (`Combo.adicionarItem`), porque o banco só barra o ciclo direto.
+
+**`saldo_estoque`** (`SaldoEstoque`, módulo `estoque`)
+
+| Campo | Tipo | Regras |
+|---|---|---|
+| `variacao_id` | `BIGINT` | Chave primária. **Sem chave estrangeira** para `variacao_produto`: o `estoque` não depende do esquema do `catalogo`; o id é só a referência. O saldo nasce zerado quando o evento `VariacaoCadastrada` é publicado. |
+| `disponivel`, `reservado` | `INTEGER`, padrão 0 | `CHECK (>= 0)` em ambos (`ck_saldo_estoque_disponivel`, `ck_saldo_estoque_reservado`): o banco é a última barreira contra estoque negativo. |
+| `atualizado_em` | `TIMESTAMPTZ` | Atualizado a cada movimentação. |
+
+**`reserva_estoque`** (`ReservaEstoque`)
+
+| Campo | Tipo | Regras |
+|---|---|---|
+| `id` | `BIGINT` identidade | Chave primária. |
+| `pedido_id`, `variacao_id` | `BIGINT`, obrigatórios | **Sem chave estrangeira** para `pedido` nem para `variacao_produto` (desacoplamento: o estoque não depende do esquema de outros módulos). Unicidade `(pedido_id, variacao_id)` (`uk_reserva_estoque_pedido_variacao`): um pedido reserva uma variação uma única vez; índice `ix_reserva_estoque_pedido`. |
+| `quantidade` | `INTEGER` | `CHECK (> 0)`. |
+| `situacao` | `VARCHAR(20)` | `CHECK` restrito a `ATIVA`, `LIBERADA`, `BAIXADA` e `REPOSTA` (enum `SituacaoReserva`). Transições válidas: `ATIVA` para `LIBERADA` ou `BAIXADA`, e `BAIXADA` para `REPOSTA`. |
+| `criado_em`, `atualizado_em` | `TIMESTAMPTZ` | Momento da reserva e da última troca de situação. |
+
+A reserva e as trocas de situação são atualizações condicionais atômicas (RN-21, em [05-regras-negocio.md](05-regras-negocio.md)). A migração e as restrições são verificadas por `infra.MigracaoV3Tests`.
+
+## 2. Diagrama de classes
+
+O diagrama cobre cliente, endereço, catálogo (categoria, produto, item vendável, variação e combo), estoque, carrinho, pedido, item do pedido, promoção, cupom, pagamento e entrega. Os nomes e atributos de catálogo e estoque (E2) refletem o código; os dos módulos das etapas 3, 5, 6 e 7 são preliminares.
 
 ```mermaid
 classDiagram
@@ -151,32 +202,43 @@ classDiagram
     class Categoria {
         +Long id
         +String nome
+        +Long paiId
     }
     class Produto {
         +Long id
         +String nome
         +String descricao
         +String marca
+        +boolean ativo
     }
-    class VariacaoProduto {
+    class ItemVendavel {
+        <<abstract>>
         +Long id
         +String sku
-        +BigDecimal preco
-        +boolean ativa
-    }
-    class AtributoVariacao {
         +String nome
-        +String valor
+        +Dinheiro preco
+        +boolean ativo
+        +estaDisponivelParaVenda() boolean
+        +componentesDeEstoque(qtd) List~ComponenteEstoque~
     }
-    class Estoque {
+    class VariacaoProduto {
+        +Map atributos
+    }
+    class Combo {
+        +adicionarItem(item, qtd)
+    }
+    class ItemCombo {
+        +int quantidade
+    }
+    class SaldoEstoque {
+        +Long variacaoId
         +int disponivel
         +int reservado
-        +reservar(qtd)
-        +liberar(qtd)
-        +baixar(qtd)
     }
     class ReservaEstoque {
         +Long id
+        +Long pedidoId
+        +Long variacaoId
         +int quantidade
         +SituacaoReserva situacao
     }
@@ -270,24 +332,27 @@ classDiagram
     Categoria "0..1" o-- "*" Categoria : subcategorias
     Categoria "1" o-- "*" Produto : classifica
     Produto "1" *-- "1..*" VariacaoProduto : variacoes
-    VariacaoProduto "1" *-- "*" AtributoVariacao : atributos
-    VariacaoProduto "1" -- "1" Estoque : saldo
-    Estoque "1" o-- "*" ReservaEstoque : reservas
+    ItemVendavel <|-- VariacaoProduto
+    ItemVendavel <|-- Combo
+    Combo "1" *-- "1..*" ItemCombo : itens
+    ItemCombo "*" --> "1" ItemVendavel : item
+    SaldoEstoque "1" ..> "1" VariacaoProduto : variacaoId
+    ReservaEstoque "*" ..> "1" VariacaoProduto : variacaoId
+    ReservaEstoque "*" ..> "1" Pedido : pedidoId
 
     Cliente "1" -- "0..1" Carrinho : possui
     Carrinho "1" *-- "*" ItemCarrinho : itens
-    ItemCarrinho "*" --> "1" VariacaoProduto : refere
+    ItemCarrinho "*" --> "1" ItemVendavel : refere
     Carrinho "*" --> "0..1" Cupom : aplica
 
     Cliente "1" --> "*" Pedido : realiza
     Pedido "1" *-- "1..*" ItemPedido : itens
-    ItemPedido "*" ..> "1" VariacaoProduto : origem
+    ItemPedido "*" ..> "1" ItemVendavel : origem (SKU)
     Pedido "1" *-- "*" EntradaHistorico : historico
     Pedido "1" *-- "*" DescontoPedido : descontos
     PromocaoAplicada "*" ..> "1" Promocao : origem
     Pedido "1" --> "*" Pagamento : pagamentos
     Pedido "1" --> "0..1" Entrega : entrega
-    Pedido "1" --> "*" ReservaEstoque : reserva
 
     Pagamento "1" *-- "*" TransacaoPagamento : transacoes
     Entrega ..> Endereco : copia de
@@ -299,19 +364,20 @@ classDiagram
 
 Pontos de leitura:
 - `Usuario` e `Perfil` (com as regras de acesso) pertencem ao módulo `seguranca`; `Cliente` referencia o usuário apenas por `usuarioId` (seta tracejada), sem acoplar os módulos. Os atributos de `Usuario`, `Cliente` e `Endereco` (E1) e de `Pedido`, `ItemPedido`, `DescontoPedido` e `EntradaHistorico` (E4) no diagrama já refletem o código.
-- A seta tracejada de `ItemPedido` para `VariacaoProduto` (hoje só o SKU copiado) e de `Entrega` para `Endereco` indica referência para fins de rastreio, não dependência de valores. Os dados comerciais são copiados (seção 5).
-- `Estoque` e `ReservaEstoque` pertencem ao módulo de estoque. O pedido guarda apenas a referência à reserva.
+- A seta tracejada de `ItemPedido` para `ItemVendavel` (hoje só o SKU copiado) e de `Entrega` para `Endereco` indica referência para fins de rastreio, não dependência de valores. Os dados comerciais são copiados (seção 5).
+- `SaldoEstoque` e `ReservaEstoque` pertencem ao módulo de estoque e referenciam a variação e o pedido **apenas por id** (setas tracejadas, sem chave estrangeira no banco, seção 1.3). O pedido não conhece a reserva: é o estoque que guarda o `pedidoId` e reage aos eventos do pedido.
+- `ItemVendavel`, `VariacaoProduto`, `Combo` e `ItemCombo` formam o Composite do catálogo (seção 6). `Categoria` é uma árvore simples, sem pattern (seção 4).
 - `CondicaoElegibilidade` é detalhada no diagrama da seção 6.
 
 ## 3. Variações de produto (decisão proposta)
 
 **Problema:** uma camiseta tem tamanhos e cores, um celular tem capacidades. O enunciado exige decidir como representar isso e permitir novos tipos de produto sem mudanças excessivas no código.
 
-**Decisão (`proposto`):** separar **Produto** de **VariacaoProduto (SKU)**.
+**Decisão (`implementado`, E2):** separar **Produto** de **VariacaoProduto (SKU)**.
 - `Produto` guarda o que é comum (nome, descrição, marca, categoria).
-- `VariacaoProduto` é a unidade vendável: tem `sku`, preço e um conjunto de `AtributoVariacao` (nome/valor).
+- `VariacaoProduto` é a unidade vendável (uma subclasse de `ItemVendavel`): tem `sku` único no catálogo, preço e um mapa de atributos nome/valor (tabela `variacao_atributo`).
 - Estoque, carrinho e itens de pedido apontam para a **variação**, não para o produto.
-- Um produto sem variações reais possui uma única variação padrão, evitando dois caminhos de código (com e sem variação).
+- Um produto sem variações reais possui uma única variação padrão (sem atributos), evitando dois caminhos de código (com e sem variação): o cadastro exige ao menos uma variação (por exemplo, o Teclado Mecânico da demonstração).
 
 **Por quê:** atributos em pares nome/valor permitem representar tamanho, cor, capacidade e atributos de tipos futuros sem criar uma subclasse de `Produto` para cada tipo. Isso atende ao requisito de extensibilidade do catálogo (RF-10, RF-13) com baixo impacto.
 
@@ -321,12 +387,12 @@ Pontos de leitura:
 
 **Trade-off:** atributos genéricos perdem validação por tipo. Mitigação possível, se necessário: um conjunto de atributos permitidos por categoria.
 
-## 4. Categorias hierárquicas (decisão proposta)
+## 4. Categorias hierárquicas (`implementado`, E2)
 
 - `Categoria` possui uma `categoria pai` opcional (autorrelacionamento), formando uma árvore de profundidade livre. Exemplo: Eletrônicos > Celulares > Acessórios.
 - Todo produto pertence a exatamente uma categoria (a mais específica).
 - Para promoções e políticas comerciais, **uma regra associada a uma categoria vale também para suas subcategorias**. A condição "pertence à categoria X" percorre os ancestrais da categoria do produto. Esta é uma decisão a confirmar na etapa de promoções (E5).
-- Persistência prevista: coluna `categoria_pai_id`. Consultas de subárvore podem usar CTE recursiva se necessário.
+- Persistência: coluna `pai_id` (seção 1.3), com nome único por pai. **Sem pattern:** é uma árvore simples, sem comportamento que varie entre nó e folha; os descendentes e ancestrais são calculados em memória por `ArvoreDeCategorias` (a quantidade de categorias é pequena), e a troca por uma CTE recursiva atrás do mesmo serviço é possível se crescer. O filtro público por categoria inclui as subcategorias, e `ConsultarItensVendaveis` informa a categoria do item e todas as ancestrais, insumo da condição "pertence à categoria X" da E5.
 
 ## 5. Preservação do histórico comercial no pedido (snapshot)
 
@@ -343,31 +409,37 @@ O enunciado exige que alterações futuras de preço não modifiquem pedidos ant
 
 Implementado na E4 (`pedido.aplicacao.CriarPedidoTests`: preço e endereço alterados ou removidos depois da compra não mudam o pedido). Regra: depois que o pedido é criado, nenhum cálculo dele depende do preço atual do catálogo nem da promoção atual. A referência à variação serve apenas para rastreio e relatórios.
 
-## 6. Combos e kits (opcional, decisão proposta)
+## 6. Combos e kits (`implementado`, E2)
 
 **Problema:** o enunciado permite vender conjuntos de produtos como combos ou kits. O carrinho e o checkout não devem precisar distinguir "produto simples" de "combo" a cada passo.
 
-**Decisão (`proposto`, opcional):** tratar combo com o pattern **Composite**. Uma abstração `Vendavel` é implementada por `ItemSimples` (uma variação) e por `Combo` (lista de `Vendavel` com quantidades). O preço do combo é definido explicitamente ou calculado a partir dos componentes.
+**Decisão (`implementado`):** tratar combo com o pattern **Composite** (detalhado em [04-design-patterns.md](04-design-patterns.md), seção 3.8). A abstração `ItemVendavel` é estendida por `VariacaoProduto` (folha) e por `Combo` (composto, lista de `ItemCombo` com `ItemVendavel` e quantidade, que pode conter outro combo). O combo tem **SKU e preço próprios** (definidos no cadastro, não calculados a partir dos componentes), para o carrinho e as promoções o endereçarem como qualquer item.
 
-**Estoque do combo:** não possui saldo próprio. A disponibilidade é derivada dos componentes (menor razão `disponivel / quantidade no combo`), e a reserva é feita por componente. Isso evita duas fontes de verdade para o mesmo estoque.
+**Estoque do combo:** não possui saldo próprio. A disponibilidade é derivada dos componentes (menor razão `disponivel / quantidade no combo`, divisão inteira, calculada sobre `componentesDeEstoque(1)` já agregados), e a reserva é feita por componente (`componentesDeEstoque(q)` devolve as variações e quantidades). Isso evita duas fontes de verdade para o mesmo estoque. Um combo ou um de seus componentes inativo deixa o combo indisponível para venda.
 
 ```mermaid
 classDiagram
-    class Vendavel {
-        <<interface>>
-        +preco() BigDecimal
-        +componentes() List
+    class ItemVendavel {
+        <<abstract>>
+        +preco() Dinheiro
+        +estaDisponivelParaVenda() boolean
+        +componentesDeEstoque(qtd) List
+        +contemOuE(alvo) boolean
     }
-    class ItemSimples {
-        +VariacaoProduto variacao
+    class VariacaoProduto {
+        +Produto produto
+        +Map atributos
     }
     class Combo {
-        +String nome
-        +BigDecimal precoCombo
+        +adicionarItem(item, qtd)
     }
-    Vendavel <|.. ItemSimples
-    Vendavel <|.. Combo
-    Combo "1" o-- "2..*" Vendavel : composto por
+    class ItemCombo {
+        +int quantidade
+    }
+    ItemVendavel <|-- VariacaoProduto
+    ItemVendavel <|-- Combo
+    Combo "1" *-- "1..*" ItemCombo : itens
+    ItemCombo "*" --> "1" ItemVendavel : item
 
     class CondicaoElegibilidade {
         <<interface>>
@@ -404,13 +476,15 @@ O segundo grupo do diagrama mostra as **condições de elegibilidade** combináv
 
 | Item | Situação |
 |---|---|
-| Produto separado de variação (SKU) com atributos nome/valor | `proposto` |
-| Estoque associado à variação | `proposto` |
-| Categorias em árvore, regra da categoria vale para subcategorias | `proposto` (confirmar em E5) |
+| Produto separado de variação (SKU) com atributos nome/valor | `implementado` (E2, seção 1.3) |
+| SKU único no catálogo inteiro (variações e combos), em `item_vendavel` | `implementado` (E2) |
+| Estoque associado à variação, por id, sem chave estrangeira entre módulos | `implementado` (E2) |
+| Categorias em árvore simples (sem pattern), nome único por pai | `implementado` (E2) |
+| Regra da categoria vale também para subcategorias (promoções) | `proposto` (confirmar em E5); o catálogo já informa as categorias ancestrais de cada item |
 | Pedido com cópia dos dados comerciais (snapshot) | decidido (exigência do enunciado); `implementado` na E4 (seção 1.2) |
 | Concorrência nas transições do pedido: lock otimista (`@Version`, coluna `versao`) em vez de lock pessimista | `implementado` (E4) |
 | Histórico do pedido com entrada inicial de criação (`de` nulo) e responsável de três tipos | `implementado` (E4) |
-| Combos/kits via Composite, sem estoque próprio | `proposto`, opcional |
+| Combos/kits via Composite (`ItemVendavel`, `VariacaoProduto`, `Combo`, `ItemCombo`), com SKU e preço próprios e sem estoque próprio | `implementado` (E2) |
 | Tipo `Dinheiro` dedicado ou `BigDecimal` direto | decidido na E1: tipo `Dinheiro` em `compartilhado.dominio` (`implementado`) |
 | `Usuario`/`Perfil` em `seguranca`; `Cliente` referencia `usuarioId`; endereço removido por inativação, com índice parcial de principal | `implementado` (E1) |
-| Mecanismo de concorrência no estoque (atualização condicional ou `@Version`) | em aberto, decidido em E4 (ver [05-regras-negocio.md](05-regras-negocio.md)) |
+| Mecanismo de concorrência no estoque: **atualização condicional atômica** (`disponivel >= quantidade`), não `@Version` nem lock pessimista | decidido e `implementado` na E2 (RN-21, ver [05-regras-negocio.md](05-regras-negocio.md)) |

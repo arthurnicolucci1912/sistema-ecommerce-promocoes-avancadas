@@ -2,7 +2,7 @@
 
 - **Objetivo:** descrever os principais casos de uso do sistema (cliente e perfis administrativos) e registrar roteiros preliminares, em diagramas de sequência, para os três processos centrais pedidos no enunciado: checkout, aplicação de promoções e confirmação de pagamento.
 - **Etapas do roadmap relacionadas:** todas. Cada caso de uso indica a etapa em que será implementado (ver [08-roadmap.md](08-roadmap.md)). Os diagramas são refinados nas etapas 4 (checkout), 5 (promoções) e 6 (pagamento).
-- **Status:** proposto (diagramas e nomes de participantes são preliminares e podem mudar na implementação). Os casos UC-09 e UC-10 (parte de pedido) e UC-A07 a UC-A09 estão `implementado` na E4 (change `pedido-ciclo-vida`), com as rotas reais indicadas em cada um; o pagamento, a entrega e os efeitos de estoque, estorno e notificação continuam nas etapas 6 a 8.
+- **Status:** proposto (diagramas e nomes de participantes são preliminares e podem mudar na implementação). Os casos UC-09 e UC-10 (parte de pedido) e UC-A07 a UC-A09 estão `implementado` na E4 (change `pedido-ciclo-vida`), e UC-03 e UC-A01 a UC-A04 estão `implementado` na E2 (change `catalogo-estoque`), todos com as rotas reais indicadas em cada um; o pagamento, a entrega e os efeitos de estorno e notificação continuam nas etapas 6 a 8 (os efeitos de estoque sobre o pedido já existem, como ouvintes, na E2).
 
 Documentos relacionados: [05-regras-negocio.md](05-regras-negocio.md) (regras citadas aqui), [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md) (estados do pedido), [09-testes.md](09-testes.md) (cenários de teste derivados destes fluxos).
 
@@ -76,15 +76,25 @@ flowchart LR
   - E1. Remoção de endereço vinculado a pedido em andamento: bloqueada ou feita por inativação, preservando o pedido (decisão a confirmar na etapa 4).
 
 ### UC-03 - Consultar catálogo
-- **Ator:** Cliente (ou visitante, se a consulta for pública).
-- **Etapa:** 2.
+- **Ator:** Visitante (sem login) ou Cliente. A consulta é **pública**: não exige token.
+- **Etapa:** 2 (`implementado`, change `catalogo-estoque`).
 - **Pré-condições:** nenhuma além de haver produtos ativos.
+- **Rotas (`implementado`, E2)**, todas `GET` sob `/api/catalogo`, sem token:
+
+| Rota | Resultado |
+|---|---|
+| `/api/catalogo/categorias` | Árvore de categorias: as raízes, cada uma com as subcategorias em `filhas`, ordenadas pelo nome em todos os níveis. |
+| `/api/catalogo/produtos?categoriaId=&nome=&precoMin=&precoMax=&page=&size=` | Página de produtos ordenada pelo nome, com os filtros opcionais: categoria (**inclui as subcategorias**), nome (contém, sem diferenciar maiúsculas) e faixa de preço (considera as variações ativas). `page` começa em 0, `size` padrão 20 e máximo 100. |
+| `/api/catalogo/produtos/{id}` | Detalhe com nome, descrição, marca, categoria e as variações ativas (SKU, nome, preço, atributos e `disponivel`). |
+| `/api/catalogo/combos` e `/api/catalogo/combos/{id}` | Combos disponíveis para venda, com SKU, preço, componentes e `disponibilidade` (o mínimo de `disponivel / quantidade` entre os componentes). |
+
 - **Fluxo principal:**
   1. O ator lista produtos, filtrando por categoria (incluindo subcategorias), nome ou faixa de preço.
   2. O ator abre um produto e vê descrição, preço, variações (tamanho, cor, capacidade) e disponibilidade.
 - **Fluxos alternativos / erro:**
-  - A1. Filtro sem resultados: lista vazia.
-  - E1. Produto inexistente ou inativo: erro "não encontrado".
+  - A1. Filtro sem resultados (inclusive categoria inexistente): página vazia, sem erro.
+  - E1. Produto inexistente, inativo ou sem variação ativa, ou combo inexistente ou indisponível (inativo ou com componente inativo): 404 "não encontrado".
+  - E2. Página negativa ou tamanho menor que 1: 400.
 
 ### UC-04 - Gerenciar carrinho
 - **Ator:** Cliente.
@@ -213,10 +223,10 @@ Os perfis que podem executar cada caso estão na coluna "Perfis". `ADMIN` pode e
 
 | ID | Caso de uso | Perfis | Etapa |
 |---|---|---|---|
-| UC-A01 | Gerenciar catálogo (produtos, variações, combos/kits) | ADMIN, OPERADOR_COMERCIAL | 2 |
-| UC-A02 | Gerenciar categorias e subcategorias | ADMIN, OPERADOR_COMERCIAL | 2 |
-| UC-A03 | Alterar preços | ADMIN, OPERADOR_COMERCIAL | 2 |
-| UC-A04 | Gerenciar estoque | ADMIN, ESTOQUE | 2 |
+| UC-A01 | Gerenciar catálogo (produtos, variações, combos/kits) | ADMIN, OPERADOR_COMERCIAL | 2 (`implementado`) |
+| UC-A02 | Gerenciar categorias e subcategorias | ADMIN, OPERADOR_COMERCIAL | 2 (`implementado`) |
+| UC-A03 | Alterar preços | ADMIN, OPERADOR_COMERCIAL | 2 (`implementado`) |
+| UC-A04 | Gerenciar estoque | ADMIN, ESTOQUE | 2 (`implementado`) |
 | UC-A05 | Gerenciar promoções | ADMIN, PROMOCOES | 5 |
 | UC-A06 | Gerenciar cupons | ADMIN, PROMOCOES | 5 |
 | UC-A07 | Consultar pedidos | ADMIN, OPERADOR_COMERCIAL | 4 (`implementado`) |
@@ -229,21 +239,47 @@ Os perfis que podem executar cada caso estão na coluna "Perfis". `ADMIN` pode e
 ### UC-A01 a UC-A03 - Catálogo, categorias e preços
 - **Ator:** Administrador ou operador comercial.
 - **Pré-condições:** usuário autenticado com perfil permitido.
+- **Rotas (`implementado`, E2)**, sob `/api/admin`, para `ADMIN` e `OPERADOR_COMERCIAL`:
+
+| Caso | Rota | Resultado |
+|---|---|---|
+| UC-A01 | `POST /api/admin/produtos` (produto com suas variações; SKU, preço e atributos livres nome/valor) | 201 |
+| UC-A01 | `PUT /api/admin/produtos/{id}` (nome, descrição, marca e categoria) | 200 |
+| UC-A01 | `POST /api/admin/produtos/{id}/variacoes` (nova variação) | 201 |
+| UC-A01 | `POST /api/admin/produtos/{id}/inativacao` e `POST /api/admin/produtos/variacoes/{id}/inativacao` | 204 |
+| UC-A01 | `POST /api/admin/combos` (SKU e preço próprios e componentes: SKU de variação ou de outro combo, com quantidade) | 201 |
+| UC-A01 | `PUT /api/admin/combos/{id}` (preço e/ou componentes, que substituem os atuais) e `POST /api/admin/combos/{id}/inativacao` | 200 e 204 |
+| UC-A02 | `POST /api/admin/categorias` (sem `paiId` = raiz), `PUT /api/admin/categorias/{id}` (nome e pai) e `DELETE /api/admin/categorias/{id}` | 201, 200 e 204 |
+| UC-A03 | `PUT /api/admin/produtos/variacoes/{id}` (novo preço da variação) e `PUT /api/admin/combos/{id}` (novo preço do combo) | 200 |
+
 - **Fluxo principal:**
   1. O ator cria ou edita produto (nome, descrição, preço, categoria, variações, atributos opcionais), categoria/subcategoria ou combo/kit.
-  2. O sistema valida e persiste. Alterações de preço valem apenas para novos carrinhos e checkouts, sem modificar pedidos antigos.
-  3. Alterações de preço e criação/remoção relevantes são registradas na auditoria (usuário, momento, valor anterior e novo).
+  2. O sistema valida e persiste. Alterações de preço valem apenas para novos carrinhos e checkouts, sem modificar pedidos antigos. Toda variação cadastrada gera o evento `VariacaoCadastrada`, e o estoque cria o saldo zero dela.
+  3. Alterações de preço e criação/remoção relevantes são registradas na auditoria (usuário, momento, valor anterior e novo). *(Etapa 8: ainda não existe.)*
 - **Fluxos alternativos / erro:**
-  - E1. Perfil sem permissão: acesso negado.
-  - E2. Preço negativo ou categoria inexistente: rejeitado.
-  - E3. Remoção de produto presente em pedidos: inativação em vez de exclusão física.
-  - E4. Ciclo na hierarquia de categorias: rejeitado.
+  - E1. Perfil sem permissão: 403 (por exemplo, `ESTOQUE` ou `CLIENTE`); sem token: 401.
+  - E2. Preço menor ou igual a zero, corpo inválido ou categoria (ou categoria pai) informada que não existe: 400 (o corpo inválido traz os campos com erro). Categoria, produto, variação ou combo alvo da rota inexistente: 404.
+  - E3. Remoção de produto presente em pedidos: inativação em vez de exclusão física (produto, variação e combo só se inativam). Remover categoria com produtos ou subcategorias: 409.
+  - E4. Ciclo na hierarquia de categorias (mover para si mesma ou para uma descendente): 409. Nome de categoria repetido entre irmãs (sem diferenciar maiúsculas): 409.
+  - E5. SKU repetido no catálogo inteiro, inclusive SKU de variação contra SKU de combo, ou repetido na mesma requisição: 409.
+  - E6. Combo que contém a si mesmo, direta ou indiretamente, ou com componente repetido: 409.
 
 ### UC-A04 - Gerenciar estoque
 - **Ator:** Responsável pelo estoque.
 - **Pré-condições:** produto/variação cadastrado.
-- **Fluxo principal:** o ator consulta e ajusta a quantidade disponível (entrada de mercadoria, correção). O sistema distingue quantidade disponível, reservada e baixada.
-- **Fluxos alternativos / erro:** ajuste que deixaria o disponível negativo ou abaixo do já reservado: rejeitado.
+- **Rotas (`implementado`, E2)**, sob `/api/admin/estoque`, para `ADMIN` e `ESTOQUE`:
+
+| Rota | Resultado |
+|---|---|
+| `GET /api/admin/estoque/{variacaoId}` | Saldo da variação: `disponivel`, `reservado` e `atualizadoEm`. |
+| `GET /api/admin/estoque?abaixoDe=` | Estoque baixo: variações com `disponivel` estritamente menor que o limite (parâmetro obrigatório), ordenadas pela variação. |
+| `POST /api/admin/estoque/{variacaoId}/ajustes` com `{"quantidade": 10, "motivo": "compra do fornecedor"}` | Soma (positivo) ou subtrai (negativo) do disponível e devolve o saldo. |
+
+- **Fluxo principal:** o ator consulta e ajusta a quantidade disponível (entrada de mercadoria, correção). O saldo distingue quantidade disponível e reservada; a baixa de um pedido pago fica registrada na situação `BAIXADA` da reserva (`reserva_estoque`). As reservas, liberações, baixas e reposições são movimentadas pelo próprio sistema (checkout e eventos do pedido), não por rota administrativa.
+- **Fluxos alternativos / erro:**
+  - E1. Ajuste que deixaria o disponível negativo: 409, e o saldo não muda. O `reservado` não entra na conta: `disponivel` já exclui o que está reservado, e o ajuste nunca mexe nele.
+  - E2. Quantidade zero, ausente, ou motivo em branco: 400. Variação sem saldo: 404.
+  - E3. Perfil sem permissão (por exemplo, `OPERADOR_COMERCIAL`): 403; sem token: 401.
 
 ### UC-A05 - Gerenciar promoções
 - **Ator:** Responsável pelas promoções (ou administrador).

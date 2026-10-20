@@ -45,7 +45,7 @@
 
 ## 7. Documentação
 
-- [ ] 7.1 Atualizar com os nomes reais do código:
+- [x] 7.1 Atualizar com os nomes reais do código:
   - `docs/04-design-patterns.md`: §3.8 Composite com as classes reais, status implementado e o teste de extensibilidade; §3.6 Observer com os ouvintes do estoque e `VariacaoCadastrada`; remover a menção a "Composite de categorias", se houver;
   - `docs/02-modelo-dominio.md`: nomes padronizados `ItemVendavel`, `VariacaoProduto`, `Combo`, `ReservaEstoque` e as tabelas da `V3`;
   - `docs/03-arquitetura.md`: módulos `catalogo` e `estoque`, contratos `ConsultarItensVendaveis`, `ReservarEstoque` e `ConsultarSaldo`, ouvintes e regras ArchUnit novas;
@@ -55,7 +55,7 @@
   - `docs/10-execucao.md`: dados de demonstração do catálogo e a demo da última unidade.
 
   Verificar: os nomes citados existem e os links resolvem.
-- [ ] 7.2 Corrigir `docs/08-roadmap.md`, `docs/11-divisao-equipe.md` e `docs/12-board.md`: o "Composite (categorias e combos)" vira "Composite (combos)" e "Observer (ouvintes do estoque)". No board, registrar `catalogo-estoque` como **implementado por Arthur**, com a nota de que a atribuição original era do Lucas, e manter a mesma informação no `11`, na tabela de responsabilidades. Verificar: os três documentos dizem o mesmo.
+- [x] 7.2 Corrigir `docs/08-roadmap.md`, `docs/11-divisao-equipe.md` e `docs/12-board.md`: o "Composite (categorias e combos)" vira "Composite (combos)" e "Observer (ouvintes do estoque)". No board, registrar `catalogo-estoque` como **implementado por Arthur**, com a nota de que a atribuição original era do Lucas, e manter a mesma informação no `11`, na tabela de responsabilidades. Verificar: os três documentos dizem o mesmo.
 
 ## 8. Verificação final
 

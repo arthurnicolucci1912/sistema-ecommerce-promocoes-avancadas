@@ -66,12 +66,12 @@ public class Combo extends ItemVendavel {
         itens.add(new ItemCombo(item, quantidade));
     }
 
-    /** Combo vendavel: ativo, com componentes, e todos eles disponiveis (recursivamente). */
     /** Remove todos os componentes, para substitui-los por uma nova lista (o chamador grava antes de adicionar). */
     public void removerItens() {
         itens.clear();
     }
 
+    /** Combo vendavel: ativo, com componentes, e todos eles disponiveis (recursivamente). */
     @Override
     public boolean estaDisponivelParaVenda() {
         return isAtivo() && !itens.isEmpty()

@@ -15,9 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Caso de uso minimo de cadastro de uma variacao em um produto existente: confere o SKU unico no catalogo, adiciona
- * a variacao ao produto, salva e so entao publica os eventos acumulados pelo produto. Os demais casos de uso do
- * catalogo (cadastro completo de produto, combos, consulta) pertencem ao grupo 4 e devem reaproveitar este ponto
- * de publicacao.
+ * a variacao ao produto, salva e so entao publica os eventos acumulados pelo produto. {@link GerenciarProdutos}
+ * delega a este caso de uso cada variacao nova, reaproveitando a checagem de SKU e a publicacao.
  *
  * <p>Pattern: Observer - papel: sujeito/publicador (via {@link PublicadorEventos}); os ouvintes (por exemplo,
  * o estoque) se inscrevem sem alterar esta classe.

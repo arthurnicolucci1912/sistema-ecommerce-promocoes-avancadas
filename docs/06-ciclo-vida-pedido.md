@@ -4,7 +4,7 @@
 >
 > **Etapas do roadmap relacionadas:** 4 (checkout e pedido: estados e transições), 6 (pagamento e idempotência: `PAGO`, `PAGAMENTO_RECUSADO`, estorno), 7 (entrega e frete: `ENVIADO`, `ENTREGUE`), 8 (eventos, notificações e auditoria: eventos emitidos e histórico). Ver [08-roadmap.md](08-roadmap.md).
 >
-> **Status:** implementado (E4, change `pedido-ciclo-vida`): estados, transições, cancelamento por perfil, histórico e eventos do pedido. Os **efeitos sobre outros módulos** (estoque, cupom, estorno e notificação) ainda não existem: são ouvintes dos eventos, previstos nas etapas seguintes, e estão marcados como *futuro* na seção 5.
+> **Status:** implementado (E4, change `pedido-ciclo-vida`): estados, transições, cancelamento por perfil, histórico e eventos do pedido. Os efeitos de **estoque** (baixa, liberação e reposição) foram implementados na E2 (change `catalogo-estoque`) como ouvintes dos eventos do pedido, sem alterar este módulo; os de cupom, estorno e notificação ainda não existem: são ouvintes previstos nas etapas seguintes e estão marcados como *futuro* na seção 5.
 
 Documentos relacionados: [04-design-patterns.md](04-design-patterns.md) (State, seção 3.4; Observer, seção 3.6), [05-regras-negocio.md](05-regras-negocio.md) (RN-18 a RN-28), [09-testes.md](09-testes.md).
 
@@ -94,7 +94,7 @@ Caso especial, que **não** é transição inválida: a confirmação de pagamen
 
 Efeitos de estoque seguem RN-17 a RN-21; os de cancelamento, RN-26 a RN-28. Os eventos são publicados como eventos de domínio (Observer, ver [04-design-patterns.md](04-design-patterns.md)); notificação e auditoria são reações a eles.
 
-| ID | Estoque *(futuro)* | Estorno / pagamento *(futuro)* | Cupom *(futuro)* | Evento emitido (`implementado`) | Histórico (`implementado`) / notificação *(futuro)* |
+| ID | Estoque (`implementado`, E2; a reserva de T1 é chamada pelo checkout, *futuro*) | Estorno / pagamento *(futuro)* | Cupom *(futuro)* | Evento emitido (`implementado`) | Histórico (`implementado`) / notificação *(futuro)* |
 |---|---|---|---|---|---|
 | T0 | nenhum | nenhum | validado e conferido (RN-22) | nenhum (ver observação abaixo) | snapshot comercial gravado (RN-23) e entrada inicial de histórico |
 | T1 | **reserva** (`disponivel` para `reservado`), atômica (RN-18, RN-21) | inicia a cobrança no gateway | uso consumido (RN-07) | `PedidoCriado` | notifica criação do pedido |
@@ -106,16 +106,16 @@ Efeitos de estoque seguem RN-17 a RN-21; os de cancelamento, RN-26 a RN-28. Os e
 | T7 | nenhum (não havia reserva) | nenhum | uso devolvido, se consumido | `PedidoCancelado` | histórico com responsável e motivo; notifica cancelamento |
 | T8 | **liberação** da reserva (RN-20) | cobrança pendente cancelada | uso devolvido | `PedidoCancelado` | idem T7; na expiração o ator é o sistema |
 | T9 | nenhum (já liberada em T3) | nenhum | nenhum (já devolvido em T3) | `PedidoCancelado` | idem T7 |
-| T10 | **reposição** das unidades baixadas *(premissa)* | **estorno simulado** do valor pago (RN-27) | uso devolvido | `PedidoCancelado` | idem T7, com registro do estorno |
-| T11 | **reposição** das unidades baixadas *(premissa)* | **estorno simulado** do valor pago (RN-27) | uso devolvido | `PedidoCancelado` | idem T7, com registro do estorno |
+| T10 | **reposição** das unidades baixadas | **estorno simulado** do valor pago (RN-27) | uso devolvido | `PedidoCancelado` | idem T7, com registro do estorno |
+| T11 | **reposição** das unidades baixadas | **estorno simulado** do valor pago (RN-27) | uso devolvido | `PedidoCancelado` | idem T7, com registro do estorno |
 
-**O que já existe e o que é futuro.** Na change `pedido-ciclo-vida` só o que é do próprio pedido está implementado: a mudança de estado, o histórico e o **evento** de cada transição, publicado depois de salvar (seção 8). Reserva, baixa e reposição de estoque, devolução de cupom, cobrança e estorno simulado e notificação são **ouvintes futuros** desses eventos (estoque, pagamento e notificação, nas changes `catalogo-estoque`, `pagamento-idempotencia` e `eventos-notificacoes-auditoria`); por ora, cancelar um pedido apenas muda o estado, registra o histórico e publica `PedidoCancelado` (com `de` indicando o estado de origem, que o ouvinte usará para decidir liberar a reserva, repor a baixa ou estornar). Os eventos `PagamentoConfirmado` e `PagamentoRecusado` da tabela original passam a ser, para o pedido, `PedidoPago` e `PedidoPagamentoRecusado`; os do módulo de pagamento (mesmos nomes antigos) nascem na etapa 6 e serão distintos.
+**O que já existe e o que é futuro.** Na change `pedido-ciclo-vida` só o que é do próprio pedido está implementado: a mudança de estado, o histórico e o **evento** de cada transição, publicado depois de salvar (seção 8). Baixa, liberação e reposição de estoque passaram a existir na change `catalogo-estoque` (E2) como ouvintes desses eventos (`OuvinteDePedidosDoEstoque`, que usa o estado de origem `de` do `PedidoCancelado` para liberar a reserva ou repor a baixa), sem alterar o módulo `pedido`; a reserva em si (T1) é chamada pelo checkout, futuro. Devolução de cupom, cobrança e estorno simulado e notificação são **ouvintes futuros** (cupons, pagamento e notificação, nas changes `promocoes-cupons`, `pagamento-idempotencia` e `eventos-notificacoes-auditoria`). Os eventos `PagamentoConfirmado` e `PagamentoRecusado` da tabela original passam a ser, para o pedido, `PedidoPago` e `PedidoPagamentoRecusado`; os do módulo de pagamento (mesmos nomes antigos) nascem na etapa 6 e serão distintos.
 
 **Observação sobre T0 e T1.** `CriarPedido` persiste o pedido em `CRIADO` a partir do snapshot (T0, sem evento) e `ConfirmarReservaDoPedido` o leva a `AGUARDANDO_PAGAMENTO` (T1, que emite `PedidoCriado`). O checkout chamará os dois na mesma transação, depois de reservar o estoque: se a reserva falha, a transação é desfeita e nenhum pedido persiste. A transição `CRIADO` para `CANCELADO` (T7) cobre o cancelamento nesse intervalo. Nesta change não há endpoint HTTP de criação: o pedido de demonstração do perfil `dev` e os testes usam os serviços.
 
 ## 6. Cenários de exemplo
 
-Os cenários descrevem o comportamento completo do sistema. Hoje valem as mudanças de estado, o histórico e os eventos; as reações de estoque, estorno, cupom e notificação são as *futuras* da seção 5.
+Os cenários descrevem o comportamento completo do sistema. Hoje valem as mudanças de estado, o histórico, os eventos e as reações de estoque (baixa, liberação e reposição); as de estorno, cupom e notificação são as *futuras* da seção 5.
 
 1. **Fluxo feliz.** Checkout (T0, T1) estoque reservado; confirmação `TX-123` (T2) baixa de estoque; preparação (T4); despacho (T5); entrega (T6). Estado final: `ENTREGUE`.
 2. **Pagamento recusado.** T0, T1, T3: a reserva é liberada e o cupom devolvido; o pedido fica em `PAGAMENTO_RECUSADO`. O cliente que quiser comprar de novo faz um novo checkout (e não reabre este pedido). Se cancelar o pedido recusado, T9 apenas fecha o histórico.
