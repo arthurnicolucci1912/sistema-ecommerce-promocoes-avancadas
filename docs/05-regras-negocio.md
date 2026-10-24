@@ -4,7 +4,7 @@
 >
 > **Etapas do roadmap relacionadas:** 2 (catálogo e estoque), 3 (carrinho e recálculo), 4 (checkout e pedido), 5 (promoções e cupons), 6 (pagamento e idempotência), 7 (entrega e frete). Ver [08-roadmap.md](08-roadmap.md).
 >
-> **Status:** proposto, com RN-23, RN-26 e RN-28 `implementado` na E4 (change `pedido-ciclo-vida`) e RN-17 a RN-21 `implementado` na E2 (change `catalogo-estoque`, no nível do módulo `estoque`; a ligação com o carrinho e com o checkout é das etapas 3 e 4). Os efeitos de estoque de RN-26 também estão `implementado` na E2; os de cupom e estorno (RN-26 e RN-27) continuam futuros. As decisões D4 (conflito), D5 (estoque) e D6 (idempotência) do design da change vêm do design aprovado; os pontos marcados como *premissa* são escolhas preliminares desta documentação e podem ser revistas na change da etapa, registrando o motivo.
+> **Status:** implementado (E1–E9): as regras RN foram implementadas pelas changes arquivadas até 2026-10-23, com o status de cada regra no corpo. Os pontos marcados como *premissa* registram escolhas da etapa, mantidas na implementação salvo indicação.
 
 Documentos relacionados: [04-design-patterns.md](04-design-patterns.md), [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md), [09-testes.md](09-testes.md).
 
@@ -160,7 +160,7 @@ Toda inclusão, alteração de quantidade ou remoção de item, e toda aplicaç�
 *Exemplo:* no carrinho do exemplo acima, remover o Livro (R$ 100,00) leva o subtotal a R$ 300,00; P2 deixa de ser aplicável, P1 continua (300 ≥ 300) e todo o detalhamento é refeito.
 
 ### RN-14. Arredondamento
-Cálculos monetários usam `BigDecimal`, duas casas decimais, arredondamento `HALF_UP`, aplicado ao resultado de cada desconto.
+Cálculos monetários usam `BigDecimal`, duas casas decimais, arredondamento `HALF_EVEN`, conforme o objeto de valor `Dinheiro`, aplicado ao resultado de cada desconto.
 *Exemplo:* 15% sobre R$ 33,30 = R$ 4,995, arredondado para R$ 5,00.
 
 ---
@@ -188,12 +188,14 @@ Cada produto/variação tem `disponivel` (unidades livres) e `reservado` (unidad
 Adicionar ou alterar item no carrinho consulta a disponibilidade para avisar o cliente, mas **não reserva**. Verificar no carrinho não garante o estoque no checkout (enunciado, *Estoque*).
 *Exemplo:* o cliente vê "2 disponíveis" ao adicionar; ao concluir o checkout, a quantidade é conferida de novo (RN-22).
 
-**Status:** `implementado` (E2) como consulta: `ConsultarSaldo` não reserva nada, e o detalhe público do produto e do combo mostram a disponibilidade (`disponivel` de cada variação; a do combo é o mínimo de `disponivel / quantidade` entre os componentes). Testes: `catalogo.aplicacao.ConsultarCatalogoTests` e `estoque.aplicacao.AjusteEConsultaDeSaldoTests`. O carrinho que usa essa consulta é da etapa 3.
+**Status:** `implementado` (E2) como consulta: `ConsultarSaldo` não reserva nada, e o detalhe público do produto e do combo mostram a disponibilidade (`disponivel` de cada variação; a do combo é o mínimo de `disponivel / quantidade` entre os componentes). Testes: `catalogo.aplicacao.ConsultarCatalogoTests` e `estoque.aplicacao.AjusteEConsultaDeSaldoTests`. A E3 implementa o uso no carrinho via `ConsultarDisponibilidadeDoCarrinho`, agregando a demanda de todas as linhas antes da consulta e retornando avisos sem reservar.
 
 ### RN-18. Reserva na conclusão do checkout (D5)
 A reserva acontece quando o checkout é concluído e o pedido entra em `AGUARDANDO_PAGAMENTO`. Ela move unidades de `disponivel` para `reservado`, de todos os itens do pedido na mesma transação: se um item falhar, nenhum é reservado e o checkout é abortado com erro de estoque insuficiente.
 
-**Status:** `implementado` (E2) em `estoque.aplicacao.ReservarEstoque.para(pedidoId, componentes)`. É **tudo-ou-nada**: roda na transação do chamador, e a exceção `EstoqueInsuficienteException` (409, com `variacaoId` e `disponivel` no Problem Details) desfaz as reservas já feitas dessa chamada. As quantidades são somadas por variação e processadas **ordenadas por `variacaoId`**, o que evita deadlock entre pedidos que disputam as mesmas variações. Reservar de novo para um pedido que já tem reserva é rejeitado (409). Para um combo, o chamador reserva os `componentesDeEstoque` (variações e quantidades já agregadas). Testes: `estoque.aplicacao.ReservarEstoqueTests`. Quem aciona a reserva é o checkout (etapa 4); até lá, só o pedido de demonstração do perfil `dev`.
+**Status:** `implementado` (E2) em `estoque.aplicacao.ReservarEstoque.para(pedidoId, componentes)`. É **tudo-ou-nada**: roda na transação do chamador, e a exceção `EstoqueInsuficienteException` (409, com `variacaoId` e `disponivel` no Problem Details) desfaz as reservas já feitas dessa chamada. As quantidades são somadas por variação e processadas **ordenadas por `variacaoId`**, o que evita deadlock entre pedidos que disputam as mesmas variações. Reservar de novo para um pedido que já tem reserva é rejeitado (409). Para um combo, o chamador reserva os `componentesDeEstoque` (variações e quantidades já agregadas). Testes: `estoque.aplicacao.ReservarEstoqueTests`. A E4b conecta esse serviço ao checkout; o pedido de demonstração do perfil `dev` continua utilizando a mesma operação.
+
+**Integração E4b:** `CheckoutFacade` agora aciona a reserva durante a compra. Criação do pedido, confirmação de reserva e limpeza versionada do carrinho fazem parte da mesma transação; falha posterior ao flush de qualquer etapa desfaz tudo. O checkout entrega componentes já agregados e verifica o limite de int antes da reserva. Evidência: `CheckoutIntegracaoTests` (compra, insuficiência parcial e rollback após confirmação/limpeza).
 
 ### RN-19. Pagamento aprovado converte a reserva em baixa
 Na confirmação do pagamento (`PAGO`), as unidades saem de `reservado` (baixa definitiva).
@@ -242,6 +244,8 @@ Duas requisições simultâneas competem na mesma linha do banco; como a condiç
 ### RN-22. Revalidação antes de concluir
 O checkout nunca confia nos valores do carrinho. Antes de criar o pedido, recalcula e confere: preço atual dos produtos, vigência das promoções, validade e uso do cupom, estoque, endereço (pertence ao cliente), entrega e forma de pagamento. Se o resultado diferir do que o cliente viu, o checkout **não conclui**: devolve as divergências e o novo detalhamento (resposta de conflito, preliminar) e o cliente precisa confirmar novamente. Estoque insuficiente aborta o checkout (RN-18).
 
+**Status E4b (`implementado`):** prévia com dados correntes e confirmação explícita do detalhamento inteiro. `ConferirConfirmacao` verifica versão do carrinho, linhas comerciais, preços unitários, descontos, frete, totais e endereço. Diferenças respondem 409 com `divergencias` e `previaAtualizada`, sem pedido nem reserva; preços que se compensam no total também exigem confirmação. Ordem das linhas e escala decimal equivalente não geram falso conflito. Endereço alheio, inativo ou inexistente responde 404; SKU ausente/inativo bloqueia a compra (409). Esse foi o contrato inicial E4b; E5 integrou benefícios, E6 pagamento separado e E7 cotação/seleção obrigatória de entrega. A confirmação compara também fornecedor, modalidade, prazo e frete líquido. Testes: `ConfirmacaoCheckoutTests`, `RevalidarCheckoutTests`, `CheckoutIntegracaoTests`.
+
 **Cenário: preço e promoção mudaram.** O cliente montou o carrinho do cenário A (total R$ 261,00). Antes do checkout, o Teclado passou de R$ 200,00 para R$ 220,00 e a promoção P2 (20% em Livros) expirou.
 
 | Linha | Valor no carrinho | Valor revalidado |
@@ -258,7 +262,7 @@ O sistema responde com as duas divergências (preço do Teclado e promoção P2 
 O pedido grava uma cópia (snapshot) dos dados comerciais: preço unitário, cada promoção aplicada com seu valor, cupom, frete e total. Alterações futuras de preço ou promoção não alteram pedidos antigos.
 *Exemplo:* o Teclado, comprado a R$ 220,00, passa a custar R$ 250,00; o pedido continua mostrando R$ 220,00.
 
-**Status:** `implementado` na E4. O agregado `Pedido` copia itens (SKU, nome, descrição da variação, preço unitário, quantidade, total do item), descontos (descrição, origem `PROMOCAO` ou `CUPOM`, alvo `ITENS` ou `FRETE`, valor), frete, totais e o endereço de entrega, sem setters, e confere na criação que `subtotal` é a soma dos itens e `total = subtotal - descontos + frete` (senão, `DadoInvalidoException`: "Totais inconsistentes"). O cupom entra como um desconto com origem `CUPOM`. Teste: `pedido.aplicacao.CriarPedidoTests` (preço e endereço alterados depois da compra não mudam o pedido). A revalidação do checkout (RN-22) é da change `checkout`.
+**Status:** `implementado` na E4. O agregado `Pedido` copia itens (SKU, nome, descrição da variação, preço unitário, quantidade, total do item), descontos (descrição, origem `PROMOCAO` ou `CUPOM`, alvo `ITENS` ou `FRETE`, valor), frete, totais e o endereço de entrega, sem setters, e confere na criação que `subtotal` é a soma dos itens e `total = subtotal - descontos + frete` (senão, `DadoInvalidoException`: "Totais inconsistentes"). O cupom entra como um desconto com origem `CUPOM`. Teste: `pedido.aplicacao.CriarPedidoTests` (preço e endereço alterados depois da compra não mudam o pedido). A revalidação do checkout (RN-22) foi implementada na E4b; `CheckoutIntegracaoTests` verifica que preço e endereço alterados após a compra não mudam o snapshot.
 
 ---
 
@@ -268,11 +272,11 @@ O pedido grava uma cópia (snapshot) dos dados comerciais: preço unitário, cad
 Toda confirmação externa de pagamento traz o identificador da transação (`idTransacaoExterna`). Ele é registrado em tabela própria com restrição de **unicidade**. O registro e o efeito (transição do pedido, baixa de estoque, evento) acontecem na mesma transação do banco.
 
 ### RN-25. Confirmação repetida é no-op
-Se a inserção do identificador falhar por duplicidade, a confirmação já foi processada: o sistema responde como sucesso (para a origem não reenviar) e **não faz nada**: sem segunda baixa de estoque, sem segunda transição do pedido, sem segundo evento. A restrição de unicidade no banco resolve também o caso de duas entregas simultâneas.
+Se o identificador já estiver registrado com o mesmo resultado, a confirmação já foi processada: o sistema responde como sucesso (para a origem não reenviar) e **não faz nada**: sem segunda baixa de estoque, sem segunda transição do pedido, sem segundo evento. A restrição de unicidade no banco resolve também o caso de duas entregas simultâneas.
 
 **Cenário: confirmação duplicada.** O pedido 100 está em `AGUARDANDO_PAGAMENTO`, com 2 unidades do Teclado reservadas.
 1. Chega a confirmação `TX-123`. O identificador é inserido com sucesso. O pedido vai a `PAGO`, a reserva de 2 unidades vira baixa, o evento `PagamentoConfirmado` é publicado.
-2. O gateway reenvia `TX-123` (nova tentativa por timeout). A inserção viola a unicidade; o sistema responde sucesso sem efeito. O estoque continua com baixa de 2 (e não 4); o pedido segue em `PAGO` e nenhuma notificação duplicada sai.
+2. O gateway reenvia `TX-123` (nova tentativa por timeout). A inserção idempotente não cria nova linha; o sistema responde sucesso sem efeito. O estoque continua com baixa de 2 (e não 4); o pedido segue em `PAGO` e nenhuma notificação duplicada sai.
 
 Observação: uma confirmação com **outro** identificador para um pedido que já não está em `AGUARDANDO_PAGAMENTO` (por exemplo, pedido cancelado) não é duplicata: é uma transição inválida e gera erro, sem alterar o pedido (ver [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md)).
 
@@ -300,7 +304,7 @@ O cancelamento é permitido a partir de `CRIADO`, `AGUARDANDO_PAGAMENTO`, `PAGAM
 **Status:** `implementado` na E4 quanto às regras de estado, perfil, motivo e histórico (testes: `pedido.dominio.estado.EstadosDoPedidoTests`, `pedido.dominio.PedidoTests`, `pedido.web.PedidosDoClienteTests`, `pedido.web.PedidosAdministrativosTests`). O efeito de **estoque** passou a ser executado na E2 (ver RN-19 e RN-20): o `PedidoCancelado` é publicado com o estado de origem (`de`) e o ouvinte do estoque libera ou repõe conforme a origem. Os efeitos de **pagamento** e de **cupom** **não são executados ainda** e serão ouvintes nas etapas de pagamento (E6) e cupons (E5).
 
 ### RN-27. Estorno simulado
-**Status:** futuro (etapa 6, `pagamento-idempotencia`); nesta etapa só o evento `PedidoCancelado` com `de` é publicado.
+**Status:** `implementado` na E6 (`pagamento-idempotencia`); na E4 só o evento `PedidoCancelado` com `de` era publicado.
 
 Se existe pagamento aprovado, o cancelamento chama o contrato do gateway para estornar o valor total pago (sem transação financeira real). O estorno também é idempotente: um pedido não é estornado duas vezes.
 *Exemplo:* pedido `PAGO` de R$ 261,00 é cancelado: estorno simulado de R$ 261,00, unidades repostas, uso do cupom devolvido, pedido em `CANCELADO`.
@@ -309,6 +313,61 @@ Se existe pagamento aprovado, o cancelamento chama o contrato do gateway para es
 Todo cancelamento registra no histórico do pedido: estado anterior, momento, responsável (cliente, administrador ou sistema, no caso de expiração) e motivo. O cancelamento de pedidos também entra na auditoria de operações administrativas (etapa 8).
 *Exemplo:* "Pedido 100: `PAGO` para `CANCELADO`, por admin@loja, em 10/05/2026 14:32, motivo: pedido em duplicidade; estorno simulado realizado".
 
-**Status:** `implementado` na E4 (exceto a auditoria, etapa 8). Cada transição grava uma `EntradaHistorico` com estado anterior, estado novo, momento, responsável (`CLIENTE`, `ADMINISTRATIVO` com o id do usuário, ou `SISTEMA`) e motivo; a criação do pedido gera uma entrada inicial (de nulo para `CRIADO`, responsável `SISTEMA`), e o detalhe do pedido devolve o histórico em ordem cronológica. Testes: `pedido.aplicacao.TransicionarPedidoTests` e `pedido.web.PedidosDoClienteTests`.
+**Status:** `implementado` na E4, com registro de auditoria administrativa no grupo 2 da E8. Cada transição grava uma `EntradaHistorico` com estado anterior, estado novo, momento, responsável (`CLIENTE`, `ADMINISTRATIVO` com o id do usuário, ou `SISTEMA`) e motivo; a criação do pedido gera uma entrada inicial (de nulo para `CRIADO`, responsável `SISTEMA`), e o detalhe do pedido devolve o histórico em ordem cronológica. Testes: `pedido.aplicacao.TransicionarPedidoTests` e `pedido.web.PedidosDoClienteTests`.
 
 Devolução parcial ou total é a extensão opcional do enunciado e está fora do escopo desta versão das regras.
+
+## Formação do preço: parcela implementada na E3
+
+RN-11 a RN-14: `PipelinePreco`, `EtapaSubtotal` e `EtapaTotal` calculam subtotal e total com `Dinheiro` (HALF_EVEN). O texto anterior de RN-14 dizia HALF_UP; foi alinhado ao contrato e à implementação de `Dinheiro` já existente na E1 e à spec desta change. Promoções/cupons foram integrados na E5 e frete comercial na E7. O pipeline inicial não aplica descontos e tem frete zero. `PipelinePrecoTests` verifica precisão, cálculo vazio, isolamento e inserção de uma etapa sem alterar as existentes.
+
+### Carrinho: regras implementadas na E3
+
+RN-12/RN-13: GET, inclusão, alteração e remoção retornam a composição atual com itens, subtotal, descontos vazios, frete zero e total. O preço próprio do kit é cobrado uma única vez por unidade; componentes físicos só determinam disponibilidade. SKU repetido soma quantidade; PUT substitui, DELETE ausente é idempotente. Quantidade deve ser inteira positiva e caber em int; soma ou demanda física que estoure o limite é rejeitada com 400 e rollback.
+
+RN-17: demanda de componentes compartilhados é somada entre variações e kits, inclusive aninhados. `insuficiencias` informa variação, quantidade solicitada e disponível; a falta de saldo não impede seleção. Item inativado permanece visível, pode ser reduzido/removido e não pode ser incluído/aumentado (409). SKU desconhecido na inclusão retorna 404. Nenhuma dessas operações muda saldo ou reserva. Revalidação do checkout permanece responsabilidade da E4b.
+
+
+## Situação implementada das RN-01 a RN-14 e RN-16/22/26 na E5
+
+- RN-01/04: condições E/OU/NÃO, mínimo, categoria ancestral, SKU, UF, período, perfil autenticado e primeira compra. Vigência UTC inclui início e exclui fim. Árvores têm até 16 níveis/128 nós. Primeira compra usa aprovação no histórico: pedidos recusados/cancelados sem pagar não impedem desconto; pago e depois cancelado impede. Sem UF, condição de região é falsa. Carrinho usa o endereço principal e checkout o endereço escolhido.
+- RN-02/03: D4 implementada por `PoliticaPadrao`; exclusiva de maior desconto, ou acumuláveis e melhor não acumulável. Empates por prioridade, criação mais antiga e id. Tetos separados de itens/frete preservam maior prioridade, removendo descontos efetivos zero. A política pode ser substituída.
+- RN-05 a RN-10: código normalizado e único; rejeições estruturadas INEXISTENTE, INATIVO, FORA_DA_VIGENCIA, ESGOTADO, LIMITE_CLIENTE, INCOMPATIVEL e CONFIGURACAO_ALTERADA no consumo. Aplicação/substituição inválida preserva cupom anterior. Percentual incide após promoções; fixo e frete respeitam a base residual. Cupom não acumulável conflita com promoção aplicada, e exclusiva impede cupom.
+- RN-07/26: uso consumido na conclusão com benefício positivo, nunca em seleção/prévia. Limites global e por cliente são protegidos pela trava do cupom; pedidos recusados/cancelados devolvem uma vez e preservam histórico. Falhas posteriores ao consumo desfazem a compra inteira. Benefício zero não consome. Estorno simulado foi integrado na E6. Expiração automática permanece pendente de prazo e rotina próprios.
+- RN-11 a RN-14/16: cadeia subtotal→promoções→cupom→frete bruto→total, HALF_EVEN por benefício, descontos discriminados por origem/id/código/alvo/valor. Na E7 o frete bruto vem da cotação selecionada no checkout; frete grátis/redução respeitam o residual sem descontar duas vezes. No resumo do carrinho, ainda sem escolha de entrega, a base de frete é zero.
+- RN-22/23: desconto do pedido vem do cálculo revalidado, com snapshot imutável. Mudança de campanha/cupom/primeira compra entre prévia e conclusão exige confirmação; cupom inválido selecionado bloqueia conclusão mesmo que o resumo sem benefício seja reenviado. O cliente precisa removê-lo/substituí-lo.
+
+Se cupom selecionado perder validade/condições, GET e manutenção de itens continuam funcionando: resumo inclui o motivo e não concede o benefício inválido, sem apagar silenciosamente o código. Os comportamentos acima são verificados nos testes E5 relacionados em docs/09; descrições anteriores que colocam todo desconto/cupom como futuro passam a valer apenas para a situação histórica das E3/E4b.
+
+
+### RN-24 a RN-27: decisões implementadas na E6
+
+A cobrança é iniciada pelo comprador para seu pedido, com valor do snapshot e forma fixa; repetição retorna a mesma transação. Cartão aprova por padrão, PIX/boleto aguardam confirmação. Resultados de recusa são simulados por configuração do servidor ou callback administrativo, sem flag de aprovação escolhida pelo comprador.
+
+Confirmação ADMIN com transação conhecida e mesmo resultado retorna 200, inclusive depois de cancelamento posterior. Resultado divergente responde 409. Transação desconhecida responde 404; PENDENTE no callback é inválido (400). Confirmação inédita após cancelamento responde 409, sem confirmação aceita nem efeitos, conforme RN-24/25. Falha no processamento desfaz confirmação, histórico e efeitos para permitir reenvio. Unicidade é garantida no PostgreSQL, sem capturar exceção de duplicidade em transação JPA inválida.
+
+Cancelamento pago ou em preparação solicita estorno integral uma única vez ao fornecedor original. Recusa/exceção do simulador registra FALHOU e mantém cancelamento, reposição e devolução de cupom. ADMIN pode tentar novamente; sucesso CONCLUIDO não repete chamada nem devoluções. Pedido legado sem cobrança conhecida registra pendência para conciliação manual, e retentativa responde 409 sem fabricar transação. Não há expiração automática implementada nem integração financeira real.
+
+
+### RN-15/16 e RN-22/23 implementadas na E7
+
+Escolha de entrega é obrigatória na prévia e conclusão HTTP. Cotação bruta e prazo são fornecidos pelo servidor para endereço próprio; opção inválida/perda de cobertura retorna 409 com opções atuais, sem substituir automaticamente. Mudança de custo bruto, prazo, fornecedor ou modalidade exige reconfirmação, mesmo quando frete grátis mantém o total final. Sem cobertura, consulta retorna lista vazia; falha dos serviços necessários é 503, nunca custo zero fictício.
+
+A tabela de demonstração econômica é Sudeste R$ 25/5 dias, Sul R$ 30/6, Centro-Oeste R$ 35/7, Nordeste R$ 40/9 e Norte R$ 45/12. Expressa: R$ 40/2, 48/3, 56/3, 64/4 e 72/6, respectivamente. Dias são úteis estimados após aprovação, sem promessa de data com feriados nem transição automática. Custos variam por região/modalidade; os fornecedores não usam peso. Tarifas, prazos e cobertura são configuração do servidor.
+
+O motor recebe cotação antes dos benefícios. Resposta discrimina `frete` bruto, descontos com alvo FRETE e `freteLiquido`, limitado a zero; `total=subtotal−todosDescontos+freteBruto`. Promoção exclusiva de itens impede campanha de frete grátis como determina a política existente. Cupom de frete só consome utilização quando acrescenta benefício positivo; se uma campanha já zera o frete, benefício zero não consome. Ao cancelar/recusar, devolução permanece idempotente.
+
+Snapshot V7 preserva escolha comercial. Pagamento e estorno usam total comprado, sem recotar; alterar transporte depois não muda pedido. Campos opcionais em pedidos legados não autorizam novas compras HTTP sem seleção.
+
+
+### Notificações implementadas na E8 — grupo 1
+
+Criação efetivada (`AGUARDANDO_PAGAMENTO`), aprovação, recusa, envio e cancelamento confirmados disparam mensagem identificando pedido e situação para o e-mail do cliente. Envio ocorre somente após commit; operação revertida ou evento sem transação não envia. Repetir confirmação de pagamento não gera nova mensagem.
+
+Falha ao consultar destinatário não desfaz compra/pagamento; falha de um canal não bloqueia os demais. Ambas são registradas sem dados pessoais, credenciais ou mensagem arbitrária do fornecedor. O canal padrão apenas simula envio em log. Não há garantia de entrega após queda do processo nem retentativa automática. Auditoria administrativa implementada no grupo 2 e consulta no grupo 3 (E8, arquivada em 2026-10-23).
+
+### Auditoria implementada — E8, grupo 2
+
+Operações administrativas concluídas gravam usuário autenticado, instante, operação, tipo/id do recurso e detalhes permitidos. Catálogo registra nomes, hierarquia, dados do produto, variações, preços anterior/novo, componentes e inativação; categoria admite remoção. Estoque manual registra delta e motivo, inclusive para ESTOQUE. Campanhas e cupons registram configuração, versão e ativação; usuários registram somente perfis e situação, excluindo senha, hash e token por construção.
+
+Preparação, envio, entrega e cancelamento administrativo de pedido registram estados anterior/novo; cancelamento também registra motivo. Pagamento/recusa automática, replay de callback, efeitos automáticos de estoque/cupom e cancelamento de cliente não produzem registros administrativos. Carga dev com autenticação temporária de sistema, sem JWT de usuário, não recebe ator artificial. Operação composta gera um registro por chamada pública, e operação inválida ou revertida não deixa trilha de sucesso. Auditoria e mutação confirmam ou revertem juntas; falha da trilha aborta a mutação. Consulta paginada restrita a ADMIN permanece no grupo 3.

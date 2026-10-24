@@ -20,7 +20,12 @@ import java.util.List;
 public record PedidoResponse(Long id, Long clienteId, SituacaoPedido situacao, List<ItemResponse> itens,
         List<DescontoResponse> descontos, BigDecimal frete, BigDecimal subtotal, BigDecimal totalDescontos,
         BigDecimal total, EnderecoEntregaResponse enderecoEntrega, Instant criadoEm,
-        List<EntradaHistoricoResponse> historico) {
+        List<EntradaHistoricoResponse> historico, EntregaSelecionadaResponse opcaoEntrega, BigDecimal freteLiquido) {
+    public record EntregaSelecionadaResponse(String codigo, String fornecedor, String modalidade, int prazoDias) {
+        public static EntregaSelecionadaResponse de(br.com.fatec.ecommerce.pedido.dominio.DadosEntregaSelecionada e) {
+            return e == null ? null : new EntregaSelecionadaResponse(e.getCodigo(), e.getFornecedor(), e.getModalidade(), e.getPrazoDias());
+        }
+    }
 
     public record ItemResponse(String sku, String nomeProduto, String descricaoVariacao, int quantidade,
             BigDecimal precoUnitario, BigDecimal totalItem) {
@@ -31,10 +36,10 @@ public record PedidoResponse(Long id, Long clienteId, SituacaoPedido situacao, L
         }
     }
 
-    public record DescontoResponse(String descricao, OrigemDesconto origem, AlvoDoDesconto alvo, BigDecimal valor) {
+    public record DescontoResponse(String descricao, OrigemDesconto origem, AlvoDoDesconto alvo, BigDecimal valor, Long referenciaId, String codigo) {
 
         static DescontoResponse de(DescontoPedido d) {
-            return new DescontoResponse(d.getDescricao(), d.getOrigem(), d.getAlvo(), d.getValor().valor());
+            return new DescontoResponse(d.getDescricao(), d.getOrigem(), d.getAlvo(), d.getValor().valor(), d.getReferenciaId(), d.getCodigo());
         }
     }
 
@@ -62,12 +67,13 @@ public record PedidoResponse(Long id, Long clienteId, SituacaoPedido situacao, L
         }
     }
 
-    static PedidoResponse de(Pedido p) {
+    public static PedidoResponse de(Pedido p) {
         return new PedidoResponse(p.getId(), p.getClienteId(), p.getSituacao(),
                 p.getItens().stream().map(ItemResponse::de).toList(),
                 p.getDescontos().stream().map(DescontoResponse::de).toList(), p.getFrete().valor(),
                 p.getSubtotal().valor(), p.getTotalDescontos().valor(), p.getTotal().valor(),
                 EnderecoEntregaResponse.de(p.getEntrega()), p.getCriadoEm(),
-                p.getHistorico().stream().map(EntradaHistoricoResponse::de).toList());
+                p.getHistorico().stream().map(EntradaHistoricoResponse::de).toList(),
+                EntregaSelecionadaResponse.de(p.getOpcaoEntrega()), p.getFreteLiquido().valor());
     }
 }

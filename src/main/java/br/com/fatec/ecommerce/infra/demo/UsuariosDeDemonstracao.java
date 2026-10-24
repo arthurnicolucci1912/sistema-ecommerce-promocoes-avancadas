@@ -11,7 +11,6 @@ import br.com.fatec.ecommerce.cliente.dominio.Endereco;
 import br.com.fatec.ecommerce.compartilhado.dominio.Dinheiro;
 import br.com.fatec.ecommerce.estoque.aplicacao.ReservarEstoque;
 import br.com.fatec.ecommerce.estoque.dominio.ComponenteAReservar;
-import br.com.fatec.ecommerce.estoque.dominio.EstoqueInsuficienteException;
 import br.com.fatec.ecommerce.pedido.aplicacao.ConfirmarReservaDoPedido;
 import br.com.fatec.ecommerce.pedido.aplicacao.CriarPedido;
 import br.com.fatec.ecommerce.pedido.dominio.DadosNovoPedido;
@@ -60,6 +59,7 @@ public class UsuariosDeDemonstracao implements ApplicationRunner {
             "estoque@demo.local", Perfil.ESTOQUE,
             "promocoes@demo.local", Perfil.PROMOCOES);
 
+    private final br.com.fatec.ecommerce.entrega.dominio.RegistroProvedoresFrete fretes;
     private final UsuarioRepository usuarios;
     private final PasswordEncoder passwordEncoder;
     private final CadastrarCliente cadastrarCliente;
@@ -77,7 +77,9 @@ public class UsuariosDeDemonstracao implements ApplicationRunner {
             CadastrarCliente cadastrarCliente, GerenciarEnderecos enderecos, ClienteRepository clientes,
             PedidoRepository pedidos, CriarPedido criarPedido, ConfirmarReservaDoPedido confirmarReserva,
             ReservarEstoque reservarEstoque, ItemVendavelRepository itens, CatalogoDeDemonstracao catalogo,
-            PlatformTransactionManager gerenteDeTransacao) {
+            PlatformTransactionManager gerenteDeTransacao,
+            br.com.fatec.ecommerce.entrega.dominio.RegistroProvedoresFrete fretes) {
+        this.fretes=fretes;
         this.usuarios = usuarios;
         this.passwordEncoder = passwordEncoder;
         this.cadastrarCliente = cadastrarCliente;
@@ -147,14 +149,15 @@ public class UsuariosDeDemonstracao implements ApplicationRunner {
                 confirmarReserva.executar(pedidoId);
             });
             LOG.info("Pedido de demonstração criado para {} (AGUARDANDO_PAGAMENTO)", EMAIL_CLIENTE);
-        } catch (EstoqueInsuficienteException e) {
-            LOG.warn("Pedido de demonstração não criado: estoque insuficiente ({})", e.getMessage());
+        } catch (br.com.fatec.ecommerce.compartilhado.dominio.ConflitoException
+                | br.com.fatec.ecommerce.compartilhado.dominio.ServicoIndisponivelException e) {
+            LOG.warn("Pedido de demonstração não criado: estoque ou entrega indisponível ({})", e.getMessage());
         }
     }
 
     /**
      * 2 x Camiseta Basica M + 1 x Caneca, com os precos do catalogo (R$ 59,90 e R$ 34,90: subtotal R$ 154,70); frete
-     * ficticio de R$ 18,50; total R$ 173,20. Preenche {@code componentes} com o estoque a reservar.
+     * economico simulado de R$ 25,00 em SP; total R$ 179,70. Preenche {@code componentes} com o estoque a reservar.
      */
     private DadosNovoPedido pedidoDeExemplo(Long clienteId, Endereco endereco, List<ComponenteAReservar> componentes) {
         List<DadosNovoPedido.Item> lista = List.of(
@@ -162,12 +165,15 @@ public class UsuariosDeDemonstracao implements ApplicationRunner {
                 item(CatalogoDeDemonstracao.SKU_CANECA, 1, componentes));
         Dinheiro subtotal = lista.stream().map(i -> i.precoUnitario().multiplicar(i.quantidade()))
                 .reduce(Dinheiro.zero(), Dinheiro::somar);
-        Dinheiro frete = Dinheiro.de("18.50");
+        var opcao = fretes.selecionar(new br.com.fatec.ecommerce.entrega.dominio.ContextoFrete(
+                endereco.getUf(), java.math.BigDecimal.ZERO, subtotal), "economica-simulada:ECONOMICA");
+        Dinheiro frete = Dinheiro.de(opcao.custoBruto());
         EnderecoEntrega entrega = new EnderecoEntrega(endereco.getApelido(), endereco.getCep(),
                 endereco.getLogradouro(), endereco.getNumero(), endereco.getComplemento(), endereco.getBairro(),
                 endereco.getCidade(), endereco.getUf());
         return new DadosNovoPedido(clienteId, entrega, lista, List.of(), frete, subtotal, Dinheiro.zero(),
-                subtotal.somar(frete));
+                subtotal.somar(frete), new br.com.fatec.ecommerce.pedido.dominio.DadosEntregaSelecionada(
+                        opcao.codigo(),opcao.fornecedor(),opcao.modalidade(),opcao.prazoDias()));
     }
 
     /** Item do snapshot a partir do catalogo (nome, variacao e preco do momento) e o estoque que ele consome. */

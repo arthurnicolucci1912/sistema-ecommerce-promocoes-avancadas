@@ -4,7 +4,7 @@
 >
 > **Etapas do roadmap relacionadas:** 4 (checkout e pedido: estados e transições), 6 (pagamento e idempotência: `PAGO`, `PAGAMENTO_RECUSADO`, estorno), 7 (entrega e frete: `ENVIADO`, `ENTREGUE`), 8 (eventos, notificações e auditoria: eventos emitidos e histórico). Ver [08-roadmap.md](08-roadmap.md).
 >
-> **Status:** implementado (E4, change `pedido-ciclo-vida`): estados, transições, cancelamento por perfil, histórico e eventos do pedido. Os efeitos de **estoque** (baixa, liberação e reposição) foram implementados na E2 (change `catalogo-estoque`) como ouvintes dos eventos do pedido, sem alterar este módulo; os de cupom, estorno e notificação ainda não existem: são ouvintes previstos nas etapas seguintes e estão marcados como *futuro* na seção 5.
+> **Status:** implementado (E4, change `pedido-ciclo-vida`): estados, transições, cancelamento por perfil, histórico e eventos do pedido. Os efeitos de **estoque** (baixa, liberação e reposição) foram implementados na E2 (change `catalogo-estoque`) como ouvintes dos eventos do pedido, sem alterar este módulo; os de cupom e estorno foram implementados na E5/E6; notificação foi implementada na E8.
 
 Documentos relacionados: [04-design-patterns.md](04-design-patterns.md) (State, seção 3.4; Observer, seção 3.6), [05-regras-negocio.md](05-regras-negocio.md) (RN-18 a RN-28), [09-testes.md](09-testes.md).
 
@@ -109,13 +109,13 @@ Efeitos de estoque seguem RN-17 a RN-21; os de cancelamento, RN-26 a RN-28. Os e
 | T10 | **reposição** das unidades baixadas | **estorno simulado** do valor pago (RN-27) | uso devolvido | `PedidoCancelado` | idem T7, com registro do estorno |
 | T11 | **reposição** das unidades baixadas | **estorno simulado** do valor pago (RN-27) | uso devolvido | `PedidoCancelado` | idem T7, com registro do estorno |
 
-**O que já existe e o que é futuro.** Na change `pedido-ciclo-vida` só o que é do próprio pedido está implementado: a mudança de estado, o histórico e o **evento** de cada transição, publicado depois de salvar (seção 8). Baixa, liberação e reposição de estoque passaram a existir na change `catalogo-estoque` (E2) como ouvintes desses eventos (`OuvinteDePedidosDoEstoque`, que usa o estado de origem `de` do `PedidoCancelado` para liberar a reserva ou repor a baixa), sem alterar o módulo `pedido`; a reserva em si (T1) é chamada pelo checkout, futuro. Devolução de cupom, cobrança e estorno simulado e notificação são **ouvintes futuros** (cupons, pagamento e notificação, nas changes `promocoes-cupons`, `pagamento-idempotencia` e `eventos-notificacoes-auditoria`). Os eventos `PagamentoConfirmado` e `PagamentoRecusado` da tabela original passam a ser, para o pedido, `PedidoPago` e `PedidoPagamentoRecusado`; os do módulo de pagamento (mesmos nomes antigos) nascem na etapa 6 e serão distintos.
+**O que já existe e o que é futuro.** Na change `pedido-ciclo-vida` só o que é do próprio pedido está implementado: a mudança de estado, o histórico e o **evento** de cada transição, publicado depois de salvar (seção 8). Baixa, liberação e reposição de estoque passaram a existir na change `catalogo-estoque` (E2) como ouvintes desses eventos (`OuvinteDePedidosDoEstoque`, que usa o estado de origem `de` do `PedidoCancelado` para liberar a reserva ou repor a baixa), sem alterar o módulo `pedido`; a reserva em si (T1) é chamada pelo checkout, implementado na E4b. Devolução de cupom e estorno simulado são ouvintes implementados nas E5/E6; notificação é ouvinte futuro da E8. Os eventos `PagamentoConfirmado` e `PagamentoRecusado` da tabela original passam a ser, para o pedido, `PedidoPago` e `PedidoPagamentoRecusado`; a E6 reutiliza esses eventos sem anunciar eventos adicionais equivalentes.
 
 **Observação sobre T0 e T1.** `CriarPedido` persiste o pedido em `CRIADO` a partir do snapshot (T0, sem evento) e `ConfirmarReservaDoPedido` o leva a `AGUARDANDO_PAGAMENTO` (T1, que emite `PedidoCriado`). O checkout chamará os dois na mesma transação, depois de reservar o estoque: se a reserva falha, a transação é desfeita e nenhum pedido persiste. A transição `CRIADO` para `CANCELADO` (T7) cobre o cancelamento nesse intervalo. Nesta change não há endpoint HTTP de criação: o pedido de demonstração do perfil `dev` e os testes usam os serviços.
 
 ## 6. Cenários de exemplo
 
-Os cenários descrevem o comportamento completo do sistema. Hoje valem as mudanças de estado, o histórico, os eventos e as reações de estoque (baixa, liberação e reposição); as de estorno, cupom e notificação são as *futuras* da seção 5.
+Os cenários descrevem o comportamento completo do sistema. Hoje valem as mudanças de estado, o histórico, os eventos e as reações de estoque (baixa, liberação e reposição); cupom e estorno foram integrados na E5/E6; notificação permanece futura.
 
 1. **Fluxo feliz.** Checkout (T0, T1) estoque reservado; confirmação `TX-123` (T2) baixa de estoque; preparação (T4); despacho (T5); entrega (T6). Estado final: `ENTREGUE`.
 2. **Pagamento recusado.** T0, T1, T3: a reserva é liberada e o cupom devolvido; o pedido fica em `PAGAMENTO_RECUSADO`. O cliente que quiser comprar de novo faz um novo checkout (e não reabre este pedido). Se cancelar o pedido recusado, T9 apenas fecha o histórico.
@@ -161,3 +161,15 @@ O motivo é obrigatório (sem ele, 400 e o pedido não muda). O perfil `ESTOQUE`
 ### 8.3 API
 
 Rotas e casos de uso em [07-casos-de-uso.md](07-casos-de-uso.md) (UC-09, UC-10, UC-A07 a UC-A09). Uma transição inválida responde 409 com `situacaoAtual` e `operacao`; pedido de outro cliente responde 404; disputa simultânea pelo mesmo pedido (lock otimista) aplica uma transição e responde 409 à outra.
+
+
+## Integração da E6
+
+Cobrança/confirmação passam pelas mesmas transições State existentes, com responsável SISTEMA e motivo identificando fornecedor/transação. Callback duplicado não solicita nova transição. Confirmação inédita após cancelamento é 409 e não reabre o pedido. O endpoint administrativo temporário foi removido; veja o roteiro de pagamento em docs/10-execucao.md.
+
+`OuvinteDePedidosDoPagamento` agora solicita estorno no cancelamento vindo de PAGO/EM_PREPARACAO. Falha do fornecedor preserva CANCELADO e registra pendência recuperável; falha no banco aborta a operação inteira. Estoque e cupom reagem antes do estorno, na mesma transação. Eventos concretos continuam `PedidoPago`, `PedidoPagamentoRecusado` e `PedidoCancelado`; os nomes preliminares `PagamentoConfirmado`/`PagamentoRecusado` não representam eventos adicionais implementados. Notificações são da E8.
+
+
+## Entrega comercial integrada (E7)
+
+O comprador consulta modalidade e prazo preservados em `GET /api/clientes/me/pedidos/{id}`. Após pagamento, ADMIN/ESTOQUE avançam pelas rotas existentes de preparação, envio e entrega. Não há novo estado, rastreamento externo nem progressão automática pelo prazo. Troca de tarifa/prazo posterior não altera snapshot, cobrança ou estorno. `EntregaIntegracaoTests.snapshotPagoAteEntregaPermaneceMesmoDepoisDeMudarCotacao` percorre o ciclo até ENTREGUE e verifica salto inválido e isolamento da consulta.

@@ -24,9 +24,16 @@ public record ContextoPreco(
         boolean primeiraCompra,
         String uf,
         Dinheiro subtotal,
-        Instant momento) {
+        Instant momento, String cupomCodigo, java.util.Set<String> perfis, Dinheiro freteBruto) {
+
+    public ContextoPreco(List<ItemPreco> itens, Long clienteId, boolean primeiraCompra, String uf,
+            Dinheiro subtotal, Instant momento) {
+        this(itens, clienteId, primeiraCompra, uf, subtotal, momento, null, java.util.Set.of(), Dinheiro.zero());
+    }
 
     public ContextoPreco {
         itens = itens == null ? List.of() : List.copyOf(itens);
+        perfis = perfis == null ? java.util.Set.of() : java.util.Set.copyOf(perfis);
+        freteBruto = freteBruto == null ? Dinheiro.zero() : freteBruto;
     }
 }

@@ -94,7 +94,7 @@ class UsuariosDeDemonstracaoTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElementos").value(1))
                 .andExpect(jsonPath("$.conteudo[0].situacao").value("AGUARDANDO_PAGAMENTO"))
-                .andExpect(jsonPath("$.conteudo[0].total").value(173.20));
+                .andExpect(jsonPath("$.conteudo[0].total").value(179.70));
         Long id = jdbc.queryForObject("select id from pedido where cliente_id = " + clienteDemo, Long.class);
         mvc.perform(get("/api/clientes/me/pedidos/" + id).header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
@@ -106,10 +106,12 @@ class UsuariosDeDemonstracaoTests {
                 .andExpect(jsonPath("$.itens[0].precoUnitario").value(59.90))
                 .andExpect(jsonPath("$.itens[1].nomeProduto").value("Caneca de Cerâmica 300 ml"))
                 .andExpect(jsonPath("$.itens[1].sku").value("CAN-CER-300"))
+                .andExpect(jsonPath("$.opcaoEntrega.codigo").value("economica-simulada:ECONOMICA"))
+                .andExpect(jsonPath("$.opcaoEntrega.prazoDias").value(5))
                 .andExpect(jsonPath("$.subtotal").value(154.70))
                 .andExpect(jsonPath("$.totalDescontos").value(0.00))
-                .andExpect(jsonPath("$.frete").value(18.50))
-                .andExpect(jsonPath("$.total").value(173.20))
+                .andExpect(jsonPath("$.frete").value(25.00))
+                .andExpect(jsonPath("$.total").value(179.70))
                 .andExpect(jsonPath("$.enderecoEntrega.logradouro").value("Avenida Paulista"))
                 .andExpect(jsonPath("$.enderecoEntrega.cep").value("01310100"))
                 .andExpect(jsonPath("$.historico[*].para").value(
@@ -126,6 +128,7 @@ class UsuariosDeDemonstracaoTests {
         runner.run(null);
         runner.run(null);
 
+        assertThat(contar("auditoria_operacao")).isZero();
         assertThat(contar("usuario")).isEqualTo(usuarios).isEqualTo(5);
         assertThat(contar("usuario_perfil")).isEqualTo(perfis);
         assertThat(contar("cliente")).isEqualTo(clientes).isEqualTo(1);

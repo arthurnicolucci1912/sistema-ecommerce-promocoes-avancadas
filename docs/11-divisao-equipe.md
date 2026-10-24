@@ -2,7 +2,7 @@
 
 > **Objetivo:** dividir o desenvolvimento completo entre os 4 integrantes com carga equilibrada. Cada pessoa é dona de um conjunto de módulos (código, testes, diagramas e justificativa dos patterns).
 > **Etapas do roadmap relacionadas:** todas (E1 a E9). Ver [08-roadmap.md](08-roadmap.md).
-> **Status:** proposto. A divisão abaixo é o **planejado** e não foi alterada; a seção 2.1 registra quem **implementou de fato** cada change.
+> **Status:** implementado (E1–E9): todas as changes arquivadas em 2026-10-23. A divisão abaixo é o **planejado** e não foi alterada; a seção 2.1 registra quem **implementou de fato** cada change.
 
 ## 1. Peso das etapas
 
@@ -41,13 +41,14 @@ A tabela acima não mudou: a atribuição original está preservada. Esta tabela
 | `estruturar-documentacao` | Arthur | Arthur | Conforme planejado. |
 | `fundacao-projeto` | Arthur | Arthur | Conforme planejado; arquivada em 2026-10-14. |
 | `pedido-ciclo-vida` | Arthur | Arthur | Conforme planejado; arquivada em 2026-10-14. |
-| `catalogo-estoque` | Lucas | **Arthur** | Implementado por Arthur (atribuição original: Lucas); em revisão, com a verificação final pendente. Os patterns dela (Composite de combos e Observer, ouvintes do estoque) continuam na lista de Lucas para a defesa. |
-| `carrinho-compras`, `relatorios-gerenciais` | Lucas | não iniciadas | |
-| `checkout` | Arthur | não iniciada | Depende de `carrinho-compras`. |
-| `promocoes-cupons`, auditoria | Amanda | não iniciadas | |
-| `pagamento-idempotencia`, `entrega-frete`, eventos e notificações | Mateus | não iniciadas | |
+| `catalogo-estoque` | Lucas | **Arthur** | Implementado por Arthur (atribuição original: Lucas); arquivada em 2026-10-19. Os patterns dela (Composite de combos e Observer, ouvintes do estoque) continuam na lista de Lucas para a defesa. |
+| `carrinho-compras` | Lucas | **Arthur** | Implementado por Arthur em sessão assistida (atribuição original: Lucas); arquivada em 2026-10-23. Lucas defende a Chain of Responsibility do pipeline de preço e deve estudar o código antes da defesa. |
+| `relatorios-gerenciais` | Lucas | **Arthur** | Implementado por Arthur em sessão assistida (atribuição original: Lucas); arquivada em 2026-10-23. Não aplica Design Pattern, então não há pattern a defender; Lucas deve estudar o código antes da defesa. |
+| `checkout` | Arthur | Arthur | Conforme planejado (sessão assistida); arquivada em 2026-10-23. |
+| `promocoes-cupons`, auditoria | Amanda | **Arthur** | Implementados por Arthur em sessão assistida (atribuição original: Amanda); arquivadas em 2026-10-23. Amanda deve estudar o código antes da defesa. |
+| `pagamento-idempotencia`, `entrega-frete`, eventos e notificações | Mateus | **Arthur** | Implementados por Arthur em sessão assistida (atribuição original: Mateus); arquivadas em 2026-10-23. Mateus deve estudar o código antes da defesa. |
 
-Quem não implementou a change que lhe cabia deve estudar o código antes da defesa (rodízio da onda 4, seção 5), em particular o Lucas, que defende o Composite e o Observer de uma change que Arthur implementou.
+Quem não implementou a change que lhe cabia deve estudar o código antes da defesa (rodízio da onda 4, seção 5), em particular Lucas, Amanda e Mateus, que defendem patterns de changes que Arthur implementou.
 
 Motivos da divisão:
 - **Promoções (Amanda) leva o maior peso.** É a parte mais avaliada, então vem acompanhada apenas de auditoria, que é leve.

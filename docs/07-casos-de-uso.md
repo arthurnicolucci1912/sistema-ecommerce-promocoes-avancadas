@@ -2,7 +2,7 @@
 
 - **Objetivo:** descrever os principais casos de uso do sistema (cliente e perfis administrativos) e registrar roteiros preliminares, em diagramas de sequência, para os três processos centrais pedidos no enunciado: checkout, aplicação de promoções e confirmação de pagamento.
 - **Etapas do roadmap relacionadas:** todas. Cada caso de uso indica a etapa em que será implementado (ver [08-roadmap.md](08-roadmap.md)). Os diagramas são refinados nas etapas 4 (checkout), 5 (promoções) e 6 (pagamento).
-- **Status:** proposto (diagramas e nomes de participantes são preliminares e podem mudar na implementação). Os casos UC-09 e UC-10 (parte de pedido) e UC-A07 a UC-A09 estão `implementado` na E4 (change `pedido-ciclo-vida`), e UC-03 e UC-A01 a UC-A04 estão `implementado` na E2 (change `catalogo-estoque`), todos com as rotas reais indicadas em cada um; o pagamento, a entrega e os efeitos de estorno e notificação continuam nas etapas 6 a 8 (os efeitos de estoque sobre o pedido já existem, como ouvintes, na E2).
+- **Status:** implementado (E1–E9): os casos de uso foram implementados pelas changes arquivadas até 2026-10-23 (pedido na E4, catálogo e estoque na E2, pagamento/estorno na E6, entrega na E7, notificação e auditoria na E8 e relatórios gerenciais na E9), com as rotas reais indicadas em cada um.
 
 Documentos relacionados: [05-regras-negocio.md](05-regras-negocio.md) (regras citadas aqui), [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md) (estados do pedido), [09-testes.md](09-testes.md) (cenários de teste derivados destes fluxos).
 
@@ -98,7 +98,7 @@ flowchart LR
 
 ### UC-04 - Gerenciar carrinho
 - **Ator:** Cliente.
-- **Etapa:** 3.
+- **Etapa:** 3 (`implementado`, change `carrinho-compras`).
 - **Pré-condições:** cliente autenticado; produto/variação ativo.
 - **Fluxo principal:**
   1. O cliente inclui um produto (ou combo/kit) com quantidade.
@@ -110,6 +110,9 @@ flowchart LR
   - E2. Quantidade menor ou igual a zero: rejeitada.
 
 ### UC-05 - Aplicar cupom
+
+**Implementado na E5:** PUT `/api/clientes/me/carrinho/cupom` com `{"codigo":"DEMO10"}` e DELETE na mesma rota. A seleção persiste e não consome uso. Rejeições respondem 409 com motivo estruturado; dados malformados, 400. Substituição rejeitada preserva o cupom anterior. Cupom selecionado que perde validade gera aviso no resumo, sem bloquear CRUD de itens, e impede checkout até remoção/substituição.
+
 - **Ator:** Cliente.
 - **Etapa:** 5.
 - **Pré-condições:** carrinho com ao menos um item.
@@ -125,9 +128,12 @@ flowchart LR
   - A1. O cliente remove o cupom: valores recalculados sem ele.
 
 ### UC-06 - Consultar composição do preço e simular frete
+
+**Implementado até a E7:** composição de preço com benefícios e consulta de modalidades/cotação para endereço próprio. O carrinho mostra resumo sem entrega escolhida; a prévia do checkout inclui cotação, prazo e frete líquido.
+
 - **Ator:** Cliente.
 - **Etapa:** 3 (subtotal), 5 (descontos), 7 (frete).
-- **Pré-condições:** carrinho com itens; para frete, endereço selecionado.
+- **Pré-condições:** carrinho com itens; para frete, endereço ativo próprio selecionado.
 - **Fluxo principal:**
   1. O cliente solicita o resumo do carrinho.
   2. O sistema devolve subtotal, descontos aplicados (um por promoção/cupom, com nome), frete e total.
@@ -147,13 +153,15 @@ flowchart LR
   4. O sistema solicita a cobrança ao gateway de pagamento (simulado) e devolve o pedido ao cliente.
   5. O sistema esvazia o carrinho.
 - **Fluxos alternativos / erro:**
-  - A1. Preço ou promoção mudou desde a inclusão no carrinho: o sistema usa os valores atuais e informa as diferenças ao cliente (decisão de exigir ou não nova confirmação a ser fechada na etapa 4).
+  - A1. Preço ou detalhamento mudou desde a prévia confirmada: responde 409 com divergências e prévia atualizada, sem criar pedido nem reservar; o cliente confere e confirma novamente. Decisão implementada na E4b conforme RN-22. Promoções entram na E5.
   - E1. Estoque insuficiente para algum item: checkout rejeitado e nada é reservado (reserva tudo-ou-nada), com indicação do item.
   - E2. Cupom deixou de ser válido: rejeitado ou removido com aviso.
   - E3. Pagamento recusado de forma síncrona: o pedido vai para `PAGAMENTO_RECUSADO` e a reserva é liberada (ver UC-S01 para o caso assíncrono).
   - E4. Carrinho vazio, endereço ausente ou forma de pagamento inválida: rejeitado.
   - E5. Concorrência pela última unidade: apenas um dos checkouts simultâneos reserva a unidade; o outro recebe E1.
 - Diagrama de sequência: [seção 6.1](#61-checkout).
+
+**Implementado na E4b:** prévia autenticada (`POST /api/clientes/me/checkout/previa`) e conclusão (`POST /api/clientes/me/checkout`), endereço ativo próprio, revalidação comercial, reserva tudo-ou-nada e limpeza transacional do carrinho. A resposta é 201 com pedido AGUARDANDO_PAGAMENTO e Location. A exigência de modalidade de entrega e forma de pagamento e a chamada automática de cobrança dos passos 1–4 pertencem às E6/E7; nesta etapa frete é zero, descontos são vazios e aprovação/recusa são acionadas separadamente pela simulação administrativa existente. Cancelamento do pedido aguardando pagamento libera sua reserva.
 
 ### UC-08 - Pagar pedido
 - **Ator:** Cliente (e gateway simulado).
@@ -167,7 +175,7 @@ flowchart LR
   - E1. Pagamento recusado: pedido em `PAGAMENTO_RECUSADO`, reserva liberada, cliente notificado.
   - A1. Nova tentativa de pagamento após recusa: regra a definir na etapa 6 (nova tentativa sobre o mesmo pedido ou novo checkout).
   - Observação: nenhum dado real de cartão é usado; os dados de demonstração são fictícios.
-  - **Temporário (E4):** até a etapa 6 não há gateway. O resultado do pagamento é simulado pelo endpoint administrativo `POST /api/admin/pedidos/{id}/pagamento-simulado` (ver UC-A07 a UC-A09), que a etapa 6 remove.
+  - **Implementado na E6:** o próprio cliente inicia cobrança em `POST /api/clientes/me/pedidos/{id}/pagamento` com `{ "forma": "PIX" }` (ou CARTAO_CREDITO/BOLETO). Cartão é síncrono; PIX/boleto são confirmados pelo ADMIN em `/api/admin/pagamentos/confirmacoes`. Consulta no GET da rota do cliente.
 
 ### UC-09 - Acompanhar pedido, pagamento e entrega
 - **Ator:** Cliente.
@@ -192,23 +200,26 @@ flowchart LR
   1. O ator solicita o cancelamento informando o motivo (obrigatório).
   2. O sistema valida a transição pelo estado atual do pedido e a registra.
   3. O pedido vai para `CANCELADO`, o cancelamento é registrado no histórico (estado anterior, momento, responsável e motivo) e o evento `PedidoCancelado` é publicado.
-  4. *(Futuro)* Os ouvintes liberam a reserva de estoque (se houver), disparam o estorno simulado (se existir pagamento aprovado) e notificam o cliente (etapas de estoque, 6 e 8). Hoje o cancelamento muda o estado, grava o histórico e publica o evento.
+  4. Os ouvintes liberam reserva ou repõem estoque, devolvem cupom e disparam estorno simulado quando existe pagamento aprovado (E2/E5/E6); notificação ao cliente ocorre após commit (E8, grupo 1). O cancelamento muda estado, grava histórico e publica evento.
 - **Fluxos alternativos / erro:**
   - E1. Pedido `ENVIADO`, `ENTREGUE` ou já `CANCELADO`: transição inválida, 409 com `situacaoAtual` e `operacao`, nenhuma alteração.
   - E2. Cliente tenta cancelar pedido `PAGO` ou `EM_PREPARACAO`: 409 com `situacaoAtual` e `operacao` e o pedido não muda.
   - E3. Motivo ausente ou em branco: 400 e o pedido não muda.
   - E4. Pedido de outro cliente ou inexistente: 404.
-  - E5. Falha no estorno simulado: comportamento a definir na etapa 6 (proposta: manter o pedido e registrar a falha para nova tentativa).
+  - E5. Falha no estorno simulado: manter CANCELADO e devoluções comerciais, registrar pendência consultável e permitir retentativa exclusiva do ADMIN. Sucesso anterior é no-op.
 
 ### UC-11 - Receber notificações
+- **Status:** implementado na E8, grupo 1.
 - **Ator:** Cliente (destinatário), sistema (emissor).
 - **Etapa:** 8.
 - **Pré-condições:** evento relevante ocorreu (pedido criado, pagamento confirmado, pedido enviado, cancelamento).
 - **Fluxo principal:**
   1. O sistema publica o evento de domínio correspondente.
-  2. O módulo de notificações reage e envia a mensagem por um canal (simulado, por exemplo log ou e-mail falso).
+  2. Após commit, `OuvinteDePedidosDaNotificacao` resolve o destinatário e envia a mensagem por cada canal ativo; o padrão é `CanalNotificacaoSimulado`, sem envio externo.
+  3. A recusa de pagamento também é comunicada. Replay de confirmação não comunica novamente; rollback não envia.
 - **Fluxos alternativos / erro:**
-  - E1. Falha no canal: não afeta o pedido nem o pagamento. A falha é registrada.
+  - E1. Falha no canal: não afeta o pedido nem o pagamento e os demais canais continuam. A falha é registrada por pedido/acontecimento/canal/categoria sem conteúdo sensível.
+  - E2. Falha de resolução do destinatário é registrada sem alterar o resultado comercial. Comunicação simulada não tem retentativa automática nem garantia após queda do processo.
 
 ### UC-12 - Solicitar devolução (opcional)
 - **Ator:** Cliente.
@@ -232,7 +243,7 @@ Os perfis que podem executar cada caso estão na coluna "Perfis". `ADMIN` pode e
 | UC-A07 | Consultar pedidos | ADMIN, OPERADOR_COMERCIAL | 4 (`implementado`) |
 | UC-A08 | Avançar andamento do pedido (preparação, envio, entrega) | ADMIN, ESTOQUE | 4 (`implementado`), 7 |
 | UC-A09 | Cancelar pedido administrativamente | ADMIN, OPERADOR_COMERCIAL | 4 (`implementado`), 6 |
-| UC-A10 | Consultar relatórios gerenciais | ADMIN, OPERADOR_COMERCIAL, PROMOCOES (relatório de campanhas) | 9 |
+| UC-A10 | Consultar relatórios gerenciais | ADMIN, OPERADOR_COMERCIAL, PROMOCOES (relatório de campanhas) | 9 (`implementado`) |
 | UC-A11 | Gerenciar usuários e perfis | ADMIN | 1 |
 | UC-A12 | Consultar trilha de auditoria | ADMIN | 8 |
 
@@ -255,7 +266,7 @@ Os perfis que podem executar cada caso estão na coluna "Perfis". `ADMIN` pode e
 - **Fluxo principal:**
   1. O ator cria ou edita produto (nome, descrição, preço, categoria, variações, atributos opcionais), categoria/subcategoria ou combo/kit.
   2. O sistema valida e persiste. Alterações de preço valem apenas para novos carrinhos e checkouts, sem modificar pedidos antigos. Toda variação cadastrada gera o evento `VariacaoCadastrada`, e o estoque cria o saldo zero dela.
-  3. Alterações de preço e criação/remoção relevantes são registradas na auditoria (usuário, momento, valor anterior e novo). *(Etapa 8: ainda não existe.)*
+  3. Alterações de preço e criação/remoção relevantes são registradas na auditoria (usuário, momento, valor anterior e novo). *(Implementado na E8, grupo 2.)*
 - **Fluxos alternativos / erro:**
   - E1. Perfil sem permissão: 403 (por exemplo, `ESTOQUE` ou `CLIENTE`); sem token: 401.
   - E2. Preço menor ou igual a zero, corpo inválido ou categoria (ou categoria pai) informada que não existe: 400 (o corpo inválido traz os campos com erro). Categoria, produto, variação ou combo alvo da rota inexistente: 404.
@@ -282,19 +293,25 @@ Os perfis que podem executar cada caso estão na coluna "Perfis". `ADMIN` pode e
   - E3. Perfil sem permissão (por exemplo, `OPERADOR_COMERCIAL`): 403; sem token: 401.
 
 ### UC-A05 - Gerenciar promoções
+
+**Implementado na E5:** GET/POST `/api/admin/promocoes`, GET/PUT `/{id}`, POST `/{id}/ativacao` e `/{id}/inativacao` (corpo com versão). GET `/tipos` e `/condicoes` descrevem os registros disponíveis. Exige ADMIN ou PROMOCOES na rota e aplicação, com paginação page/size. Edição de versão antiga é 409; parâmetros/tipo/referências inválidos são 400. Registro de auditoria implementado na E8, grupo 2; consulta implementada no grupo 3.
+
 - **Ator:** Responsável pelas promoções (ou administrador).
 - **Etapa:** 5.
 - **Pré-condições:** usuário autenticado com perfil permitido.
 - **Fluxo principal:**
   1. O ator cria uma promoção informando nome, tipo (ex.: leve 3 pague 2, percentual por categoria, valor fixo acima de mínimo, frete grátis), parâmetros do tipo, condições de elegibilidade, período de validade, prioridade e se é acumulável ou exclusiva.
   2. O sistema valida os parâmetros e persiste. A promoção passa a valer no período configurado.
-  3. A criação/alteração é registrada na auditoria.
+  3. A criação/alteração guarda configuração e versão. O registro da trilha está implementado na E8, grupo 2; consulta implementada no grupo 3.
   4. O ator pode ativar, desativar ou encerrar a promoção.
 - **Fluxos alternativos / erro:**
   - E1. Tipo desconhecido ou parâmetros inválidos (percentual fora de 0 a 100, período invertido): rejeitado.
   - A1. Promoção encerrada não afeta pedidos já criados.
 
 ### UC-A06 - Gerenciar cupons
+
+**Implementado na E5:** mesmas operações em `/api/admin/cupons`, com código normalizado/imutável, limites total/individual e consulta de usos ativos. ALTER/ativação exigem a versão corrente. Código duplicado ou limite reduzido abaixo do consumo ativo dá 409; benefício/condições inválidos dão 400.
+
 - **Ator:** Responsável pelas promoções (ou administrador).
 - **Etapa:** 5.
 - **Fluxo principal:** o ator cria cupom com código único, tipo (percentual, valor fixo ou outro benefício), validade, limite de utilizações e condições; pode consultar o consumo e desativá-lo.
@@ -310,10 +327,10 @@ Os perfis que podem executar cada caso estão na coluna "Perfis". `ADMIN` pode e
 | UC-A07 | `GET /api/admin/pedidos?situacao=&page=&size=` (lista paginada de qualquer cliente, filtro opcional por situação) e `GET /api/admin/pedidos/{id}` (detalhe com histórico) | `ADMIN`, `OPERADOR_COMERCIAL` |
 | UC-A08 | `POST /api/admin/pedidos/{id}/preparacao` (`PAGO` para `EM_PREPARACAO`), `POST /api/admin/pedidos/{id}/envio` (para `ENVIADO`) e `POST /api/admin/pedidos/{id}/entrega` (para `ENTREGUE`) | `ADMIN`, `ESTOQUE` |
 | UC-A09 | `POST /api/admin/pedidos/{id}/cancelamento` com `{"motivo": "..."}` | `ADMIN`, `OPERADOR_COMERCIAL` |
-| **Temporário** | `POST /api/admin/pedidos/{id}/pagamento-simulado` com `{"aprovado": true}` ou `{"aprovado": false}` | somente `ADMIN` |
+| **Pagamento E6** | `POST /api/admin/pagamentos/confirmacoes` com transação externa conhecida e situacao APROVADO/RECUSADO | somente `ADMIN` (integração simulada) |
 
 - **Fluxo principal:** o ator filtra e consulta pedidos de qualquer cliente; avança o andamento (`PAGO` para `EM_PREPARACAO`, para `ENVIADO`, para `ENTREGUE`); ou cancela um pedido (conforme UC-10; o administrativo cancela inclusive `PAGO` e `EM_PREPARACAO`).
-- **Endpoint de pagamento simulado (TEMPORÁRIO).** Existe só para tornar o fluxo exercitável até a etapa 6: aprova (`PAGO`) ou recusa (`PAGAMENTO_RECUSADO`) um pedido em `AGUARDANDO_PAGAMENTO`, com responsável `SISTEMA` e motivo "pagamento simulado" no histórico. Está marcado `@Deprecated` e descrito como temporário no Swagger, e a change `pagamento-idempotencia` o remove, quando o gateway passa a aprovar ou recusar o pedido. Um pedido `PAGAMENTO_RECUSADO` não é reaberto.
+- **Pagamento na E6.** O cliente inicia cobrança por forma de pagamento; ADMIN confirma a transação conhecida, de modo idempotente. As transições registram responsável SISTEMA e fornecedor/transação no histórico. O atalho temporário foi removido. Pedido PAGAMENTO_RECUSADO não é reaberto; resultado contraditório gera 409.
 - **Fluxos alternativos / erro:**
   - E1. Transição inválida (por exemplo, enviar pedido `AGUARDANDO_PAGAMENTO`, pular etapa ou mexer em pedido de estado final): 409 em Problem Details com `situacaoAtual` e `operacao`, e nenhuma alteração.
   - E2. Perfil sem permissão para a rota (por exemplo, `ESTOQUE` cancelando): 403; sem token: 401; cliente na área administrativa: 403.
@@ -323,9 +340,17 @@ Os perfis que podem executar cada caso estão na coluna "Perfis". `ADMIN` pode e
 
 ### UC-A10 - Consultar relatórios
 - **Ator:** Administrador, operador comercial; responsável pelas promoções (relatório de campanhas).
-- **Etapa:** 9.
-- **Fluxo principal:** o ator escolhe o relatório e o período: total de vendas, quantidade de pedidos, ticket médio, produtos mais vendidos, campanhas mais utilizadas, total concedido em descontos, cancelamentos e desconto concedido por campanha.
-- **Fluxos alternativos / erro:** período sem pedidos: relatório vazio (valores zero). Período inválido: rejeitado.
+- **Etapa:** 9 (`implementado`, change `relatorios-gerenciais`).
+- **Fluxo principal:** o ator escolhe o relatório e o período (`inicio` e `fim`, ISO-8601, inclusivos). Rotas `GET`, sob `/api/admin/relatorios`:
+
+| Rota | Conteúdo | Perfis |
+|---|---|---|
+| `/vendas` | valor total de vendas, quantidade de pedidos, ticket médio, total concedido em descontos e quantidade de cancelamentos | `ADMIN`, `OPERADOR_COMERCIAL` |
+| `/produtos-mais-vendidos` (`limite` de 1 a 50, padrão 10) | produtos por quantidade e valor vendido | `ADMIN`, `OPERADOR_COMERCIAL` |
+| `/campanhas` | campanhas e cupons mais utilizados e desconto concedido por campanha | `ADMIN`, `OPERADOR_COMERCIAL`, `PROMOCOES` |
+
+- **Critério de venda:** pedido pago dentro do período e não cancelado no momento da consulta; o valor é o total do pedido. Pedido pago e depois cancelado não conta; o cancelamento entra na contagem de cancelamentos do período em que ocorreu.
+- **Fluxos alternativos / erro:** período sem pedidos: 200 com valores zero e listas vazias. Período ausente, malformado ou invertido, ou `limite` fora de 1 a 50: 400. Sem token: 401. Perfil sem permissão (`PROMOCOES` em vendas e produtos, `ESTOQUE` e `CLIENTE` em qualquer relatório): 403.
 
 ### UC-A11 - Gerenciar usuários e perfis
 - **Ator:** Administrador.
@@ -334,6 +359,7 @@ Os perfis que podem executar cada caso estão na coluna "Perfis". `ADMIN` pode e
 - **Fluxos alternativos / erro:** atribuição de perfil inexistente ou tentativa de remover o último `ADMIN`: rejeitada.
 
 ### UC-A12 - Consultar trilha de auditoria
+- **Status:** implementado na E8 (grupo 3), change arquivada em 2026-10-23.
 - **Ator:** Administrador.
 - **Etapa:** 8.
 - **Fluxo principal:** o administrador filtra registros por usuário, tipo de operação e período, vendo quem fez o quê e quando (alterações de preço, criação de campanhas, cancelamentos etc.).
@@ -343,17 +369,17 @@ Os perfis que podem executar cada caso estão na coluna "Perfis". `ADMIN` pode e
 
 ### UC-S01 - Confirmar pagamento (callback do gateway)
 - **Ator:** Gateway de pagamento (sistema externo simulado).
-- **Etapa:** 6 (núcleo e idempotência), 8 (reação por eventos).
+- **Etapa:** 6 implementada (cobrança, idempotência e efeitos comerciais por eventos), 8 (notificação/auditoria).
 - **Pré-condições:** pedido em `AGUARDANDO_PAGAMENTO` com reserva de estoque ativa; confirmação traz o identificador da transação.
 - **Fluxo principal:**
   1. O gateway envia a confirmação (aprovada ou recusada) com o identificador da transação.
   2. O sistema registra o identificador (restrição de unicidade) e traduz a mensagem para o modelo interno por meio do adaptador do gateway.
-  3. Se aprovada: pedido vai para `PAGO`, a reserva é convertida em baixa de estoque e é publicado o evento `PagamentoConfirmado`; estoque e notificação reagem de forma independente.
-  4. Se recusada: pedido vai para `PAGAMENTO_RECUSADO`, a reserva é liberada e o cliente é notificado.
+  3. Se aprovada: pedido vai para `PAGO`, a reserva é convertida em baixa de estoque e é publicado o evento `PedidoPago`; estoque reage sincronamente e notificação ocorre após commit (E8, grupo 1).
+  4. Se recusada: pedido vai para `PAGAMENTO_RECUSADO`, a reserva e o uso de cupom são liberados; notificação ocorre após commit (E8, grupo 1).
 - **Fluxos alternativos / erro:**
   - A1. **Confirmação duplicada:** o identificador já foi processado. O sistema responde sucesso sem repetir efeitos: nenhuma segunda baixa de estoque, nenhuma segunda transição, nenhum novo evento (idempotência, ver [05-regras-negocio.md](05-regras-negocio.md)).
   - E1. Pedido inexistente: erro registrado, sem efeito.
-  - E2. Pedido em estado que não admite pagamento (por exemplo, já `CANCELADO`): a confirmação é registrada e sinalizada, sem alterar o pedido (tratamento de conflito, como estorno do valor, definido na etapa 6).
+  - E2. Confirmação inédita de pedido já `CANCELADO`: 409, sem confirmação aceita nem mudança comercial; diagnóstico no log. Replay idêntico de confirmação aceita anteriormente retorna 200, mesmo após cancelamento posterior. Decisão E6 alinhada a RN-24/25.
   - E3. Mensagem malformada ou assinatura inválida (se simulada): rejeitada.
 - Diagrama de sequência: [seção 6.3](#63-confirmação-de-pagamento).
 
@@ -363,7 +389,7 @@ Os nomes de participantes são provisórios. Seguem os patterns candidatos de [0
 
 ### 6.1 Checkout
 
-Fluxo do UC-07, com revalidação, reserva de estoque e criação do pedido. Mostra o caminho feliz e o ramo de estoque insuficiente.
+Fluxo implementado na E4b. O prefixo das duas rotas é `/api/clientes/me/checkout`.
 
 ```mermaid
 sequenceDiagram
@@ -371,143 +397,111 @@ sequenceDiagram
     actor Cliente
     participant API as CheckoutController
     participant CF as CheckoutFacade
-    participant Car as Carrinho
-    participant Pre as PricingPipeline
-    participant Est as EstoqueService
-    participant Ped as PedidoService
-    participant Pag as PagamentoService
-    participant Ev as EventPublisher
-
-    Cliente->>API: POST /checkout (endereço, entrega, pagamento)
-    API->>CF: finalizar(clienteId, dados)
-    CF->>Car: obter carrinho do cliente
-    Car-->>CF: itens
-    CF->>CF: validar endereço, entrega e forma de pagamento
-    CF->>Pre: recalcular(itens, cupom, endereço, entrega)
-    Note over Pre: preços atuais, promoções vigentes, cupom e frete
-    Pre-->>CF: ResumoPreco (subtotal, descontos, frete, total)
-    CF->>Est: reservar(itens)
-    alt estoque insuficiente
-        Est-->>CF: falha (item sem disponibilidade)
-        CF-->>API: erro EstoqueInsuficiente
-        API-->>Cliente: 409 Conflito, nada reservado
-    else reserva concluída
-        Est-->>CF: reserva confirmada
-        CF->>Ped: criar(snapshot de preços, descontos e frete)
-        Ped-->>CF: pedido em CRIADO
-        CF->>Ped: aguardarPagamento(pedido)
-        Note over Ped: CRIADO para AGUARDANDO_PAGAMENTO
-        CF->>Pag: iniciarCobranca(pedido, formaPagamento)
-        Pag-->>CF: cobrança pendente (idTransacao)
-        CF->>Car: esvaziar
-        CF->>Ev: publicar PedidoCriado
-        CF-->>API: pedido
-        API-->>Cliente: 201 pedido com resumo de preço
+    participant Rev as RevalidarCheckout
+    participant Pre as PipelinePreco
+    participant Cri as CriarPedido
+    participant Est as ReservarEstoque
+    participant Cup as ConfirmarUsoCupom
+    participant Conf as ConfirmarReservaDoPedido
+    participant Car as CarrinhoRepository
+    Cliente->>API: POST /previa (enderecoId)
+    API->>CF: previa(enderecoId)
+    CF->>Rev: executar(cliente do JWT, enderecoId)
+    Rev->>Pre: calcular com itens correntes e UF
+    Rev-->>CF: compra revalidada sem escrita
+    CF-->>Cliente: 200 confirmacao e insuficiencias
+    Cliente->>API: POST (enderecoId, confirmacao)
+    API->>CF: concluir
+    Note over CF,Car: Uma transacao para toda a conclusao
+    CF->>Rev: revalidar dados correntes
+    CF->>CF: comparar detalhamento confirmado
+    alt compra mudou
+        CF-->>Cliente: 409 divergencias e previaAtualizada
+    else confirmacao atual
+        CF->>Cri: executar(snapshot corrente)
+        Cri-->>CF: pedido CRIADO com id
+        CF->>Est: para(pedidoId, componentes agregados)
+        alt estoque insuficiente
+            Est-->>CF: conflito com componente e saldo
+            Note over CF,Car: Rollback de pedido, historico e reservas
+            CF-->>Cliente: 409, carrinho preservado
+        else reserva efetuada
+            CF->>Cup: consumir uso somente se beneficio de cupom for positivo
+            Note over Cup: Limites global/individual e configuracao corrente; falha reverte tudo
+            CF->>Conf: executar(pedidoId)
+            Note over Conf: AGUARDANDO_PAGAMENTO e PedidoCriado
+            CF->>Car: esvaziar agregado e salvar com versao
+            Note over CF,Car: Falha de versao tambem desfaz toda a compra
+            CF-->>API: pedido confirmado
+            API-->>Cliente: 201 pedido e Location
+        end
     end
 ```
 
-Pontos a decidir na etapa 4: se diferenças de preço em relação ao carrinho exigem nova confirmação do cliente; se a reserva e a criação do pedido ocorrem na mesma transação (proposta: sim, tudo-ou-nada).
+A conclusão exige nova confirmação de qualquer diferença comercial (RN-22) e mantém atomicidade entre pedido, reserva, consumo de cupom e limpeza. A E5 inclui identidade/origem de descontos e situação do cupom na confirmação. Cupom inválido é bloqueado com motivo e prévia atualizada. Cobrança automática e escolha de entrega serão integradas nas E6/E7; os diagramas seguintes continuam propostos para as etapas futuras.
 
 ### 6.2 Aplicação de promoções
 
-Fluxo interno do passo de promoções do pipeline de preço, incluindo a política de conflito (D4): filtrar elegíveis; se houver exclusiva, aplica só a exclusiva de maior desconto; caso contrário, todas as acumuláveis em ordem de prioridade mais a melhor não acumulável; desempate por maior prioridade e depois pela promoção mais antiga.
+Fluxo implementado na E5 e integrado à cotação escolhida na E7; a entrada do motor inclui o frete bruto antes de avaliar benefícios.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant Pre as PricingPipeline
-    participant Rep as PromocaoRepository
-    participant Prom as Promocao (Strategy)
-    participant Cond as Condicao (Composite)
-    participant Pol as PoliticaConflito (Strategy)
-    participant Res as ResumoPreco
-
-    Pre->>Rep: buscarVigentes(data)
-    Rep-->>Pre: lista de promoções vigentes
-    loop para cada promoção vigente
-        Pre->>Prom: aplicar(contexto) se elegível
+    participant Pre as PipelinePreco
+    participant Et as EtapaPromocoes
+    participant Fonte as FonteDePromocoes
+    participant Motor as MotorDePromocoes
+    participant Prom as Promocao
+    participant Cond as CondicaoElegibilidade
+    participant Pol as PoliticaConflito
+    participant Cup as EtapaCupom / AvaliadorCupom
+    Pre->>Et: processar(calculo)
+    Et->>Fonte: vigentes(momento)
+    Fonte-->>Et: estrategias criadas pelas fabricas registradas
+    Et->>Motor: calcular(contexto, estrategias)
+    loop cada promocao
+        Motor->>Prom: avaliar(contexto)
         Prom->>Cond: avaliar(contexto)
-        Note over Cond: composição E / OU / NÃO (primeira compra, valor mínimo, categoria, região, período, perfil)
-        alt condições atendidas
-            Cond-->>Prom: elegível
-            Prom-->>Pre: Desconto (valor, tipo, acumulável ou exclusiva, prioridade)
-        else condições não atendidas
-            Cond-->>Prom: não elegível
-            Prom-->>Pre: nenhum desconto
-        end
+        Prom-->>Motor: candidato elegivel ou vazio
     end
-    Pre->>Pol: resolver(descontos candidatos)
-    alt existe promoção exclusiva
-        Note over Pol: aplica somente a exclusiva de maior desconto
-    else sem exclusiva
-        Note over Pol: todas as acumuláveis por prioridade, mais a melhor não acumulável
-    end
-    Note over Pol: empate: maior prioridade, depois promoção mais antiga
-    Pol-->>Pre: descontos finais aplicados
-    Pre->>Res: registrar cada desconto (nome da promoção, valor)
-    Pre->>Pre: passa ao próximo elo (cupom, frete)
+    Motor->>Pol: resolver(candidatos)
+    Pol-->>Motor: exclusiva ou acumulaveis e melhor nao acumulavel
+    Motor->>Motor: limitar valores por alvo e prioridade
+    Motor-->>Et: descontos efetivos, origem e identidade
+    Pre->>Cup: validar cupom e calcular sobre saldo apos promocoes
+    Cup-->>Pre: desconto ou motivo recuperavel, sem consumir uso
+    Pre->>Pre: EtapaFreteBruto e EtapaTotal
 ```
 
-O frete grátis é tratado como uma promoção como as demais (desconto sobre o frete), participando da mesma política de conflito (ver [05-regras-negocio.md](05-regras-negocio.md)). A troca da política de conflito não altera o restante do pipeline.
+Empate de benefícios: prioridade, criação mais antiga e menor id; o teto preserva maior prioridade. Consumo não acontece na cadeia: ocorre na Facade durante a conclusão. `OuvinteDePedidosDoCupom` devolve uso de forma idempotente em recusa/cancelamento, na transação do pedido, depois do ouvinte de estoque. Os interessados continuam independentes do domínio do pedido.
 
 ### 6.3 Confirmação de pagamento
 
-Fluxo do UC-S01, com idempotência explícita e reação por eventos. O primeiro envio percorre todo o fluxo. O segundo envio da mesma confirmação termina em no-op.
+Fluxo implementado do UC-S01 (E6), executado na mesma transação do banco:
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    participant GW as Gateway externo
-    participant API as PagamentoWebhookController
-    participant Ad as GatewayAdapter
-    participant Pag as PagamentoService
-    participant Reg as TransacaoRegistro
-    participant Ped as Pedido (State)
-    participant Ev as EventPublisher
-    participant Est as EstoqueListener
-    participant Not as NotificacaoListener
-
-    GW->>API: POST /pagamentos/confirmacao (idTransacao, status)
-    API->>Ad: traduzir(mensagem do gateway)
-    Ad-->>API: ConfirmacaoPagamento (modelo interno)
-    API->>Pag: confirmar(confirmacao)
-    Pag->>Reg: registrar(idTransacao)
-    Note over Reg: restrição de unicidade sobre idTransacao
-    alt idTransacao já registrado (confirmação duplicada)
-        Reg-->>Pag: já processado
-        Pag-->>API: sucesso sem efeito (no-op)
-        API-->>GW: 200 OK
-        Note over Pag,Ev: sem segunda baixa de estoque, sem segunda transição, sem novo evento
-    else primeira ocorrência
-        Reg-->>Pag: registrado
-        alt pagamento aprovado
-            Pag->>Ped: confirmarPagamento()
-            Note over Ped: AGUARDANDO_PAGAMENTO para PAGO (transição validada pelo State)
-            Pag->>Ev: publicar PagamentoConfirmado
-            par reação do estoque
-                Ev->>Est: PagamentoConfirmado
-                Est->>Est: converter reserva em baixa
-            and reação da notificação
-                Ev->>Not: PagamentoConfirmado
-                Not->>Not: notificar cliente (canal simulado)
-            end
-        else pagamento recusado
-            Pag->>Ped: recusarPagamento()
-            Note over Ped: AGUARDANDO_PAGAMENTO para PAGAMENTO_RECUSADO
-            Pag->>Ev: publicar PagamentoRecusado
-            Ev->>Est: PagamentoRecusado
-            Est->>Est: liberar reserva
-            Ev->>Not: PagamentoRecusado
-            Not->>Not: notificar cliente
-        end
-        API-->>GW: 200 OK
+    participant ADM as ADMIN (gateway simulado)
+    participant API as API de pagamentos
+    participant DB as PostgreSQL
+    participant P as Pedido
+    participant E as Estoque e cupom
+    ADM->>API: confirmar transação e resultado
+    API->>DB: localizar cobrança, bloquear pedido e consultar confirmação
+    alt confirmação aceita anteriormente
+        API-->>ADM: 200 se idêntica, 409 se divergente
+    else nova confirmação
+        API->>P: validar AGUARDANDO_PAGAMENTO
+        API->>DB: inserir identificador único e resultado
+        API->>P: aprovar ou recusar com responsável SISTEMA
+        P->>DB: gravar estado e histórico
+        P->>E: publicar PedidoPago ou PedidoPagamentoRecusado
+        E->>DB: baixar ou liberar reserva; devolver cupom na recusa
+        API-->>ADM: 200 após commit
     end
 ```
 
-Observações:
-- O registro do identificador e a transição do pedido devem ocorrer na mesma transação, de modo que uma falha no meio não deixe o identificador registrado sem efeito.
-- Na etapa 6 a reação ao pagamento pode ser uma chamada direta; a etapa 8 a substitui por eventos de domínio e acrescenta notificação e auditoria (ver [08-roadmap.md](08-roadmap.md)).
-- Se a notificação falhar, a falha não desfaz o pagamento nem a baixa de estoque.
+Falha em qualquer efeito comercial desfaz confirmação, transição e efeitos para reenvio. Confirmação inédita depois de cancelamento dá 409. Replay idêntico de resultado aceito antes do cancelamento dá 200 sem novo evento. Notificações estão implementadas após commit no grupo 1 da E8; registro de auditoria implementado no grupo 2; consulta implementada no grupo 3.
 
 ## 7. Rastreabilidade casos de uso x enunciado
 
@@ -528,3 +522,87 @@ Observações:
 | Notificações, eventos | UC-11, UC-S01 |
 | Auditoria | UC-A12 e registros nos UC-A01 a UC-A09 |
 | Relatórios | UC-A10 |
+
+## Rotas efetivas do carrinho — UC-04 e parcela de UC-06 (E3)
+
+Todas exigem token CLIENTE e retornam 200 com o carrinho próprio recalculado.
+
+| Método | Rota | Entrada |
+|---|---|---|
+| GET | `/api/clientes/me/carrinho` | nenhuma; consulta vazia não cria registro |
+| POST | `/api/clientes/me/carrinho/itens` | `sku`, `quantidade` positiva; soma se SKU repetido |
+| PUT | `/api/clientes/me/carrinho/itens/{sku}` | `quantidade` positiva; substitui a quantidade |
+| DELETE | `/api/clientes/me/carrinho/itens/{sku}` | nenhuma; remover ausente não gera erro |
+
+UC-06 foi implementado inicialmente na E3 para subtotal e total; a E5 acrescenta descontos comerciais conforme a seção final de promoções/cupons. Modalidades de frete continuam na E7. A resposta tem `itens` (SKU, nome, quantidade, preço unitário, subtotal, `disponivelParaVenda` e `precoDeReferencia`), `subtotal`, `descontos`, `frete`, `total` e `insuficiencias` por componente de estoque. A indisponibilidade de estoque é aviso; inclusão/aumento de inativo dá 409; quantidade inválida dá 400, SKU inexistente na inclusão/alteração dá 404, ausência de token dá 401 e perfil sem CLIENTE dá 403. GET recalcula preços atuais; seleção persiste entre sessões.
+
+
+### Contrato executável de UC-08 e UC-S01 (E6)
+
+O checkout conclui sem iniciar cobrança. O comprador inicia/consulta pagamento somente do próprio pedido; outro cliente recebe 404. POST de início retorna 201 com Location, repetição da mesma forma 200 e troca de forma 409. O valor sempre vem do snapshot. A integração de confirmação simulada exige ADMIN/JWT; nenhuma rota pública pode aprovar pedido. Falta de autenticação é 401, perfil indevido 403 e dados inválidos 400. Evento de aprovação implementado é `PedidoPago`; notificação automática implementada no grupo 1 da E8. Para recuperar estorno: `POST /api/admin/pagamentos/{pedidoId}/estorno/tentativas`.
+
+```mermaid
+sequenceDiagram
+    participant C as Cliente
+    participant P as Pagamento
+    participant G as Gateway simulado
+    participant DB as PostgreSQL
+    participant O as Pedido e ouvintes
+    C->>P: iniciar cobrança (forma)
+    P->>DB: bloquear pedido e consultar cobrança
+    P->>G: cobrar total do snapshot com chave estável
+    G-->>P: transação e resultado
+    P->>DB: persistir cobrança
+    Note over P,O: Resultado síncrono ou callback ADMIN usa o mesmo fluxo
+    P->>DB: bloquear pedido e consultar confirmação
+    alt resultado já aceito e idêntico
+        P-->>C: 200 sem efeitos adicionais
+    else primeira confirmação válida
+        P->>DB: registrar confirmação única
+        P->>O: aprovar ou recusar
+        O->>DB: histórico e estoque/cupom na mesma transação
+        P-->>C: resultado persistido
+    end
+```
+
+
+### UC-06/07 — contrato E7 executável
+
+CLIENTE consulta `POST /api/clientes/me/checkout/fretes` com `{enderecoId}` e recebe `{opcoes:[{codigo,fornecedor,modalidade,custoBruto,prazoDias}]}`. Seleciona o código e envia `{enderecoId,opcaoEntrega}` a `/previa`; conclui com `{enderecoId,opcaoEntrega,confirmacao}`. O bloco de confirmação inclui `opcaoEntrega` (código/fornecedor/modalidade/prazo) e `freteLiquido`, junto dos demais valores. Seleção ausente é 400; opção indisponível é 409 com opções atuais. Divergência em opção ainda válida é 409 com `divergencias`/`previaAtualizada`. Sem cobertura não é possível comprar; indisponibilidade de cotação é 503. Consultar e obter prévia não reservam estoque nem consomem cupom. O pedido preserva a escolha e percorre o ciclo de entrega existente.
+
+
+### Sequência de comunicação E8 — grupo 1
+
+```mermaid
+sequenceDiagram
+    participant API
+    participant Pagamento
+    participant Pedido
+    participant Estoque
+    participant Notificacao
+    participant Canal
+    API->>Pagamento: confirmar transação externa
+    Pagamento->>Pedido: aprovar pagamento
+    Pedido-->>Estoque: PedidoPago (na transação)
+    Estoque->>Estoque: baixar reserva
+    Pagamento->>Pagamento: commit
+    Pagamento-->>Notificacao: PedidoPago (após commit)
+    Notificacao->>Notificacao: resolver destinatário em nova leitura
+    Notificacao->>Canal: enviar mensagem simulada
+    Note over Notificacao,Canal: Falhas registradas sem desfazer pagamento
+    Pagamento-->>API: sucesso
+```
+
+### Registros administrativos — E8, grupo 2
+
+UC-A01 a UC-A09 e gestão de usuários já publicam a trilha transacional nas operações de escrita cobertas. Alterações de preço guardam valores anterior/novo; campanhas e cupons guardam configuração/versão; estoque guarda quantidade/motivo; cancelamento administrativo guarda estado anterior/motivo. O responsável é o usuário autenticado, sem guardar senha ou token. Uma operação rejeitada ou revertida não cria registro de sucesso. Falha ao persistir a auditoria reverte também a alteração.
+
+O registro já existe no banco pela V8. UC-A12 está implementado no grupo 3: GET `/api/admin/auditoria`, com filtros/paginação e acesso exclusivo ADMIN.
+
+### Consulta implementada de auditoria — E8, grupo 3
+
+GET `/api/admin/auditoria` usa `ConsultarAuditoria`, protegido por ADMIN na aplicação e no controller; a cadeia de segurança também restringe `/api/admin/**` a ADMIN fora das rotas setoriais. `ConsultarRegistrosAuditoriaJdbc` executa filtros, contagem e paginação no PostgreSQL. A resposta tem `conteudo`, `page`, `size`, `totalElementos` e `totalPaginas`; registros têm id, usuarioId, ocorridoEm UTC, operacao, recursoTipo, recursoId e detalhes.
+
+Filtros opcionais combinados por AND: `usuarioId` positivo, `operacao` exata no formato `[A-Z][A-Z0-9_]{0,99}`, `inicio` e `fim` ISO-8601 com fuso. Limites temporais inclusivos; offset é normalizado para UTC. Ordem `ocorridoEm DESC, id DESC`. `page` começa em 0; `size` padrão 20, entre 1 e 100. Tamanho acima de 100 é 400. Operação desconhecida bem formada ou página além do fim retorna 200 com conteúdo vazio, preservando o total correspondente.
+
+Filtros malformados, intervalo invertido, id inválido ou paginação inválida respondem 400 antes da consulta ao banco; sem autenticação é 401 e sem ADMIN é 403. A API não oferece POST, PUT, PATCH ou DELETE para registros. Consultar a trilha não cria uma nova operação administrativa. Roteiro e testes reproduzíveis em [10-execucao.md](10-execucao.md), seção de eventos/auditoria.

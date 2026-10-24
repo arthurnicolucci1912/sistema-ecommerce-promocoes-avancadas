@@ -15,7 +15,14 @@ import java.util.Set;
  * @param componentes           componentes de estoque para uma unidade do item (variacao e quantidade)
  */
 public record ItemVendavelInfo(Long id, String sku, String nome, Dinheiro preco, boolean ativo,
-        boolean disponivelParaVenda, Set<Long> categoriaIds, List<ComponenteEstoque> componentes) {
+        boolean disponivelParaVenda, Set<Long> categoriaIds, List<ComponenteEstoque> componentes,
+        String descricaoVariacao) {
+
+    /** Compatibilidade com consumidores que nao precisam da descricao comercial adicionada no checkout. */
+    public ItemVendavelInfo(Long id, String sku, String nome, Dinheiro preco, boolean ativo,
+            boolean disponivelParaVenda, Set<Long> categoriaIds, List<ComponenteEstoque> componentes) {
+        this(id, sku, nome, preco, ativo, disponivelParaVenda, categoriaIds, componentes, null);
+    }
 
     public ItemVendavelInfo {
         categoriaIds = Set.copyOf(categoriaIds);

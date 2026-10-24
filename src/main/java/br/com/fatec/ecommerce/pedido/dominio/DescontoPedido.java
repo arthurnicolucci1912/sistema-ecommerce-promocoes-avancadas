@@ -33,6 +33,10 @@ public class DescontoPedido {
 
     @Column(nullable = false, updatable = false, precision = 12, scale = 2)
     private BigDecimal valor;
+    @Column(name="referencia_id", updatable=false) private Long referenciaId;
+    @Column(updatable=false,length=40) private String codigo;
+    public Long getReferenciaId() { return referenciaId; }
+    public String getCodigo() { return codigo; }
 
     protected DescontoPedido() {
     }
@@ -42,6 +46,7 @@ public class DescontoPedido {
         this.origem = desconto.origem();
         this.alvo = desconto.alvo();
         this.valor = desconto.valor().valor();
+        this.referenciaId = desconto.referenciaId(); this.codigo = desconto.codigo();
     }
 
     public Long getId() {

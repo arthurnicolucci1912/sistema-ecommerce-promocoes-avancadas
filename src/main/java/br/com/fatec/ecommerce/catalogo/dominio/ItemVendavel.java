@@ -84,6 +84,11 @@ public abstract class ItemVendavel {
         return Dinheiro.de(preco);
     }
 
+    /** Descricao comercial opcional para o snapshot; o consumidor nao precisa distinguir tipos do Composite. */
+    public String descricaoVariacao() {
+        return null;
+    }
+
     /** Se o item pode ser vendido agora: ativo e com todos os seus componentes disponiveis (estoque a parte). */
     public abstract boolean estaDisponivelParaVenda();
 

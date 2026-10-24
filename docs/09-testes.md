@@ -2,7 +2,7 @@
 
 - **Objetivo:** mapear os cenários de teste exigidos pelo enunciado (e os necessários para validar as regras de negócio) para a etapa do roadmap em que serão implementados e para o tipo de teste (unitário ou integração).
 - **Etapas do roadmap relacionadas:** todas; cada cenário indica sua etapa (ver [08-roadmap.md](08-roadmap.md)).
-- **Status:** proposto (a lista de cenários é a base mínima; cada change de etapa pode acrescentar casos e deve atualizar esta tabela). Cenários da E1 (T-SG-01 a T-SG-03) `implementado`, ver a seção 5. Cenários de pedido da E4 (T-PD-01 a T-PD-06 e o pedido em T-SG-01) `implementado` na change `pedido-ciclo-vida`, ver a seção 6. Cenários de estoque e catálogo da E2 (T-ES-01, T-ES-02, T-ES-05 (mecanismo), T-ES-06 e T-ES-07 (ouvintes), T-ES-08 e T-CT-01 a T-CT-12) `implementado` na change `catalogo-estoque`, ver a seção 7.
+- **Status:** implementado (E1–E9): os cenários da tabela foram cobertos pelas changes arquivadas; `./mvnw -o clean verify` em 2026-10-23: BUILD SUCCESS, 649 testes, zero falhas/erros/ignorados.
 
 Documentos relacionados: [05-regras-negocio.md](05-regras-negocio.md) (regras testadas), [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md) (transições), [07-casos-de-uso.md](07-casos-de-uso.md) (fluxos).
 
@@ -14,7 +14,7 @@ Documentos relacionados: [05-regras-negocio.md](05-regras-negocio.md) (regras te
 - **Integração:** sobe o contexto Spring e usa um banco PostgreSQL real para validar persistência, transações, restrições de unicidade, concorrência e a API HTTP com segurança. **Decidido na E1: Testcontainers com PostgreSQL 17** (contêiner descartável, mesma versão do `docker-compose.yml`, esquema criado pelas migrações Flyway; exige Docker em execução, ver [10-execucao.md](10-execucao.md)). Os testes usam a anotação `@TesteDeIntegracao` e o perfil `test`; não há banco em memória.
 - **Integrações externas simuladas:** gateways de pagamento, provedores de frete e canais de notificação são substituídos por mocks, stubs ou implementações simuladas. Nenhum teste depende de serviço externo real nem de dados reais de cartão.
 - **Relógio controlável:** validade de promoções e cupons usa um `Clock` injetável para testar vigência e expiração de forma determinística.
-- **Testes de arquitetura (ArchUnit)**, `implementado` na E1: `arquitetura.RegrasDeArquiteturaTests` verifica que `dominio` não depende de `web`, `infra`, `aplicacao` nem de `org.springframework.web`, `stereotype` e `context`; que `web` não depende de `infra`; e que os contratos da onda 0 são interfaces e só têm implementação concreta em `infra`. Na E4 acrescentou `compartilhadoNaoDependeDeModulosDeNegocio` e na E2 as regras entre `estoque`, `catalogo` e `pedido` (seção 7).
+- **Testes de arquitetura (ArchUnit)**, `implementado` na E1: `arquitetura.RegrasDeArquiteturaTests` verifica que `dominio` não depende de `web`, `infra`, `aplicacao` nem de `org.springframework.web`, `stereotype` e `context`; que `web` não depende de `infra`; e que os contratos da onda 0 são interfaces, com implementações em `infra` e handlers de preço também em `preco.dominio` desde a E3. Na E4 acrescentou `compartilhadoNaoDependeDeModulosDeNegocio` e na E2 as regras entre `estoque`, `catalogo` e `pedido` (seção 7).
 - **Nomes de teste** descrevem o cenário em português (por exemplo, `rejeitaCupomExpirado`), de modo que a lista de testes funcione como documentação.
 - Cada change de etapa implementa os cenários marcados para sua etapa e mantém verdes os das anteriores (o sistema permanece executável).
 
@@ -127,7 +127,7 @@ Os cenários T-PD-01 a T-PD-06 estão `implementado` na E4 (classes na seção 6
 | T-SG-01 | Cliente tenta acessar pedido, endereço ou carrinho de outro cliente | Acesso negado ou não encontrado | 1, 4 | I |
 | T-SG-02 | Perfil sem permissão tenta operação administrativa (por exemplo, `ESTOQUE` criando promoção) | 403 Proibido | 1, 5 | I |
 | T-SG-03 | Senha armazenada | Apenas hash no banco; login funciona com a senha correta e falha com a incorreta | 1 | U, I |
-| T-RL-01 | Relatórios (total de vendas, ticket médio, desconto por campanha) sobre pedidos conhecidos | Valores batem com os dados semeados | 9 | I |
+| T-RL-01 | Relatórios (total de vendas, ticket médio, desconto por campanha) sobre pedidos conhecidos | Valores batem com os dados semeados (`implementado`, E9) | 9 | I |
 
 ## 3. Resumo de cobertura dos cenários do enunciado
 
@@ -148,15 +148,15 @@ Os cenários T-PD-01 a T-PD-06 estão `implementado` na E4 (classes na seção 6
 |---|---|
 | 1 Fundação | T-SG-01 (base), T-SG-02 (base), T-SG-03 (`implementado`, ver a seção 5) |
 | 2 Catálogo e estoque | T-ES-01, T-ES-02, T-ES-05 (mecanismo), T-ES-08, T-ES-06 e T-ES-07 (pelos ouvintes), T-CT-01 a T-CT-12 (`implementado` na change `catalogo-estoque`, seção 7) |
-| 3 Carrinho | recálculo do carrinho, itens inválidos e composição do preço (acrescentar IDs `T-CA-xx` ao implementar) |
+| 3 Carrinho | T-CA-01 a T-CA-14: domínio, persistência, recálculo, disponibilidade e API |
 | 4 Checkout e pedido | T-ES-03, T-ES-04, T-ES-05 (via checkout), T-ES-06, T-PD-01 a T-PD-06 (`implementado` na change `pedido-ciclo-vida`, seção 6), T-SG-01 (pedido `implementado`) |
 | 5 Promoções e cupons | T-PR-01 a T-PR-10, T-CF-01 a T-CF-08, T-CU-01 a T-CU-07, T-SG-02 |
 | 6 Pagamento e idempotência | T-PG-01 a T-PG-06, T-ES-06, T-ES-07, T-ID-01, T-ID-02, T-ID-04, T-ID-05 |
 | 7 Entrega e frete | T-EN-01, T-EN-02, T-PR-05, T-CF-08, T-PD-06 |
 | 8 Eventos, notificações e auditoria | T-ID-03, T-EV-01 a T-EV-03 |
-| 9 Relatórios | T-RL-01 |
+| 9 Relatórios | T-RL-01 (`implementado`) |
 
-Os testes de carrinho (etapa 3) ainda não têm IDs detalhados: serão listados na change `carrinho-compras`, atualizando este documento.
+Os testes de carrinho (etapa 3) estão detalhados na seção E3 deste documento (T-CA-01 a T-CA-14).
 
 ## 5. Cobertura da E1 (`implementado`)
 
@@ -262,3 +262,176 @@ Demais cenários do estoque cobertos na E2:
 `arquitetura.RegrasDeArquiteturaTests`: `estoqueNaoDependeDoCatalogoExcetoOEventoDeVariacaoCadastrada` (o `estoque` só pode depender do pacote `catalogo.dominio.evento`), `catalogoNaoDependeDePedido` e `pedidoNaoDependeDeEstoqueNemDeCatalogo`. As regras passam (a task 5.2 da change registra também a confirmação de que falham com uma violação temporária, removida em seguida). Detalhes em [03-arquitetura.md](03-arquitetura.md), seção 7.
 
 Apoio de teste (não são testes): `catalogo.CatalogoParaTeste`, `catalogo.CatalogoPersistidoParaTeste`, `catalogo.CapturaDeEventosDoCatalogo` e `estoque.EstoqueParaTeste`.
+
+## E3 — Carrinho: domínio e persistência implementados
+
+| ID | Comportamento verificado | Teste |
+|---|---|---|
+| T-CA-01 | Inclusão acumulativa, alteração, remoção, ausência e proteção da coleção | `CarrinhoTests` |
+| T-CA-02 | Quantidade inválida, SKU vazio e estouro sem alteração parcial | `CarrinhoTests` |
+| T-CA-03 | Migração V4, unicidade, FK, quantidade positiva e leitura entre sessões | `CarrinhoPersistenciaTests` |
+| T-CA-04 | Duas gravações concorrentes de quantidades: uma vence, outra recebe conflito | `CarrinhoPersistenciaTests` |
+
+| T-CA-05 | Subtotal/total, precisão, vazio e independência entre cálculos | `PipelinePrecoTests` |
+| T-CA-06 | Handler novo de frete entre subtotal e total, sem alteração dos existentes | `PipelinePrecoTests` |
+
+A regra ArchUnit da E3 permite implementações de `EtapaPreco` em `preco.dominio`, preservando as restrições dos demais contratos da onda 0.
+
+### E3 — Aplicação, disponibilidade e API implementadas
+
+| ID | Comportamento verificado | Teste |
+|---|---|---|
+| T-CA-07 | Novo tipo de item vendável passa por catálogo, carrinho, preço e disponibilidade sem mudar consumidores | `CarrinhoAplicacaoTests` |
+| T-CA-08 | Referência ausente permanece visível, identificada e removível | `CarrinhoAplicacaoTests` |
+| T-CA-09 | Fluxo HTTP: vazio, inclusão acumulativa, PUT, DELETE e recálculo com preço atualizado | `CarrinhoWebTests` |
+| T-CA-10 | Kit aninhado com preço próprio; componentes compartilhados somados; saldos/reservas intactos | `CarrinhoWebTests` |
+| T-CA-11 | Falta de estoque e saldo ausente geram aviso sem mudar seleção | `CarrinhoWebTests` |
+| T-CA-12 | Inteiro positivo, fracionário rejeitado, int excedido, SKU ausente/inativo e rollback após falha no recálculo | `CarrinhoWebTests` |
+| T-CA-13 | 401/403, dois clientes isolados e proteção também na aplicação (T-SG-01, E3) | `CarrinhoWebTests` |
+| T-CA-14 | OpenAPI expõe as rotas e quantidade inteira | `CarrinhoWebTests` |
+
+Os mesmos verbos, corpos e respostas dos exemplos de docs/10-execucao.md são exercitados pelos testes web, com catálogo de teste determinístico e tokens reais.
+
+### E4b — Checkout
+
+| ID | Comportamento verificado | Teste |
+|---|---|---|
+| T-CH-01 | Descrição polimórfica ordenada, combo sem descrição artificial, SKU ausente/inativo bloqueado | `RevalidarCheckoutTests` |
+| T-CH-02 | Prévia com versão, endereço próprio e valores atuais; carrinho vazio rejeitado; leitura sem escrita | `RevalidarCheckoutTests`, `CheckoutIntegracaoTests` |
+| T-CH-03 | Kit aninhado com preço próprio, componentes compartilhados e saldo ausente | `RevalidarCheckoutTests`, `CheckoutIntegracaoTests.kitAninhadoESaldoAusenteNaPreviaSemEscrita` |
+| T-CH-04 | Multiplicação/soma acima da capacidade de reserva rejeitadas sem efeitos | `RevalidarCheckoutTests` |
+| T-CH-05 | Novo item vendável e nova etapa do pipeline usados sem modificar checkout | `RevalidarCheckoutTests.novoTipoDoCompositeENovaEtapaDoPipelineFuncionamSemMudarCheckout` |
+| T-CH-06 | Ordem/escala equivalentes aceitas; preços compensados, versão/seleção e destino alterados exigem confirmação | `ConfirmacaoCheckoutTests` |
+| T-CH-07 | 409 com divergências e prévia atualizada; preço recebido nunca determina o pedido; reconfirmação | `CheckoutIntegracaoTests.fluxoKitPrecoAlteradoReconfirmacaoSnapshotECancelamento`, `precoManipuladoQuantidadeEEnderecoAlteradosNaoConcluem` |
+| T-CH-08 | 201 com Location, AGUARDANDO_PAGAMENTO, snapshot imutável, reserva agregada e carrinho vazio | `CheckoutIntegracaoTests.fluxoKitPrecoAlteradoReconfirmacaoSnapshotECancelamento` |
+| T-CH-09 | Falha por insuficiência parcial desfaz pedido/histórico/reservas/saldos e preserva carrinho | `CheckoutIntegracaoTests.insuficienciaPosteriorDesfazReservaAnteriorEPedidoInteiro` |
+| T-CH-10 | Falha após confirmação persistida e após flush da limpeza faz rollback completo | `CheckoutIntegracaoTests.falhaDepoisDaConfirmacaoPersistidaDesfazTudo`, `falhaDepoisDoFlushDaLimpezaDesfazPedidoReservaESelecao` |
+| T-CH-11 | Dois clientes pela última unidade: um 201 e um 409; carrinho perdedor preservado | `CheckoutIntegracaoTests.doisClientesPelaUltimaUnidadeSoConfirmamUmPedido` |
+| T-CH-12 | Mesmo carrinho simultâneo com estoque suficiente gera um único pedido/reserva | `CheckoutIntegracaoTests.duasConclusoesDaMesmaVersaoNaoDuplicamCompraMesmoComEstoqueSuficiente` |
+| T-CH-13 | Inclusão concorrente vencedora não é apagada; checkout perdedor reverte sua reserva e pedido | `CheckoutIntegracaoTests.inclusaoConcorrenteVencedoraNaoEhApagadaPeloCheckout`, `checkoutVencedorFazInclusaoDaVersaoAntigaResponder409SemPerderNovaCompra` |
+| T-CH-14 | Cancelamento/recusa liberam e aprovação baixa a reserva uma vez; novo ouvinte recebe PedidoCriado | `CheckoutIntegracaoTests.fluxoKitPrecoAlteradoReconfirmacaoSnapshotECancelamento`, `recusaEAprovacaoSimuladasReagemSobreReservaReal` |
+| T-CH-15 | 401/403 em ambas as rotas, proteção na fachada, isolamento entre clientes e endereço inativo/alheio 404 | `CheckoutIntegracaoTests.autenticaPerfisEIsolaEnderecoECarrinho`, `fachadaProtegeAplicacaoTambem` |
+| T-CH-16 | Confirmação ausente, quantidade fracionária/inválida, ids inválidos: 400 em Problem Details | `CheckoutIntegracaoTests.corposInvalidosECarrinhoVazioSaoErrosPadronizados` |
+| T-CH-17 | OpenAPI documenta prévia, confirmação, pedido, 201 e conflitos | `CheckoutIntegracaoTests.documentaContratoDePreviaConfirmacaoPedidoEErros` |
+
+`CheckoutIntegracaoTests` usa PostgreSQL/Testcontainers, tokens reais, threads e transações independentes nas disputas, e falhas controladas depois de escritas reais com flush. As regressões incluem catálogo, carrinho e ArchUnit; frete, promoções e gateway foram cobertos depois, nas E5 a E7. Comando: `./mvnw -o -Dtest=RevalidarCheckoutTests,ConfirmacaoCheckoutTests,CheckoutIntegracaoTests test`.
+
+Evidência E4b em 2026-10-22: `./mvnw -o verify` — 507 testes (27 novos de checkout), zero falhas, erros ou ignorados, BUILD SUCCESS e JAR gerado; `openspec validate checkout --strict` aprovado.
+
+### E5 — Promoções e cupons
+
+| ID | Comportamento verificado | Teste |
+|---|---|---|
+| T-PR-01 | Contratos legados de contexto/candidato/desconto e coleções copiadas | `PromocoesDominioTests.contratosLegadosSaoCompativeisEContextoCopiaColecoes` |
+| T-PR-02 | E/OU/NÃO, folhas, limites de árvore e tipos/parâmetros inválidos | `PromocoesDominioTests.tabelaVerdadeDosCompostos`, `folhasEArvoreDeclarativaUsamDadosDoContexto`, `invalidaTiposFilhosProfundidadeTamanhoEParametros` |
+| T-PR-03 | Leve X/pague Y, SKU comercial de kit, vigência [início,fim) e HALF_EVEN | `PromocoesDominioTests.leveXPagueYArredondamentoVigenciaEKitsPeloSkuComercial` |
+| T-PR-04 | D4 A–D, prioridade/criação, teto por alvo e política alternativa | `PromocoesDominioTests.politicaD4CenariosADeterminismoETetos` |
+| T-PR-05 | 400−110−29=261, ordem de cálculo, frete simulado e handler novo sem estado compartilhado | `PromocoesDominioTests.cadeiaDesconta400Menos110Menos29ESeparaFreteSemEstadoCompartilhado` |
+| T-PR-06 | Sexto tipo e nova folha registrados e cadastrados por HTTP sem alterar consumidores | `PromocoesCuponsIntegracaoTests.cadastroNormalizacaoAutorizacaoTiposEExtensaoPorRegistro` |
+| T-PR-07 | Histórico real de primeira compra: cancelado sem pagar elegível, pago depois cancelado inelegível; flags no corpo ignoradas | `PromocoesCuponsIntegracaoTests.primeiraCompraFavoreceTentativasNaoPagasMasHistoricoPagoCanceladoConta`, `PromocoesDominioTests.primeiraCompraDoServidorNaoConfiaEmCriacaoDePedidoEUsaInstanteUnico` |
+| T-PR-08 | Região do endereço principal no carrinho e escolhido na prévia | `PromocoesCuponsIntegracaoTests.descontoPorRegiaoUsaPrincipalNoCarrinhoEEscolhidoNaPrevia` |
+| T-CP-01 | Percentual após promoções, teto de fixo/frete, benefício zero e novo benefício registrado | `PromocoesDominioTests.beneficiosDeCupomTetoFreteZeroEExtensao`, `cadeiaDesconta400Menos110Menos29ESeparaFreteSemEstadoCompartilhado` |
+| T-CP-02 | Cupom normalizado e persistido, substituição rejeitada preserva anterior, leitura sem consumo e isolamento | `PromocoesCuponsIntegracaoTests.cupomPersistidoSubstituicaoRejeitadaEExpiracaoRecuperavel` |
+| T-CP-03 | Motivos de inexistência/inatividade/validade/limite/incompatibilidade; resumo recuperável e checkout bloqueado | `PromocoesCuponsIntegracaoTests.cupomPersistidoSubstituicaoRejeitadaEExpiracaoRecuperavel`, `cupomInativoLimiteIndividualIncompatibilidadeEQuantidadeRecalculada` |
+| T-CP-04 | Pedido com origens/referências, limpeza de código, recusa/cancelamento devolvem uma vez e snapshot não muda | `PromocoesCuponsIntegracaoTests.checkoutDiscriminaOrigensPreservaSnapshotEDevolveNaRecusaECancelamento` |
+| T-CP-05 | Cupom distinto com mesmo valor e campanha alterada exigem reconfirmação | `PromocoesCuponsIntegracaoTests.alteracaoDeCampanhaECupomComMesmoValorExigeNovaConfirmacao` |
+| T-CP-06 | Rollback depois do consumo e depois do flush da limpeza, incluindo saldo/uso/pedido/reserva/seleção | `PromocoesCuponsIntegracaoTests.falhaDepoisDoConsumoFazRollbackInclusiveDasReservasESelecao`, `falhaDepoisDoFlushDaLimpezaReverteTambemUsoDoCupom` |
+| T-CP-07 | Última utilização global entre clientes, com preservação de recursos da perdedora | `PromocoesCuponsIntegracaoTests.ultimaUtilizacaoSobConcorrenciaNaoCriaPedidoNemReservaNaPerdedora` |
+| T-CP-08 | Limite individual concorrente, consumo repetido e versão alterada | `PromocoesCuponsIntegracaoTests.limiteIndividualConcorrenteConsumoDuplicadoEDesativacaoConcorrente` |
+| T-CP-09 | Duas conclusões da mesma seleção com cupom consomem uma vez | `PromocoesCuponsIntegracaoTests.duasConclusoesComCupomDaMesmaSelecaoConsomemUmaVez` |
+| T-CP-10 | Desativação administrativa durante compra é detectada com rollback | `PromocoesCuponsIntegracaoTests.configuracaoAlteradaDuranteCompraNaoEhConsumidaComVersaoAntiga` |
+| T-CP-11 | Devolução e novo consumo concorrentes respeitam contadores sem espera circular | `PromocoesCuponsIntegracaoTests.devolucaoENovoConsumoConcorrentesNaoGeramSaldoNegativoNemEsperaCircular` |
+| T-CP-12 | Edição versionada não apaga usos nem reduz limites abaixo do uso ativo | `PromocoesCuponsIntegracaoTests.edicaoVersionadaEContagemAtivaNaoPodemSerApagadas` |
+| T-CP-13 | ADMIN/PROMOCOES, 401/403 e proteção na aplicação, tipos/OpenAPI, código duplicado e entradas inválidas | `PromocoesCuponsIntegracaoTests.cadastroNormalizacaoAutorizacaoTiposEExtensaoPorRegistro`, `aplicacaoTambemExigeResponsavelPorPromocoes` |
+| T-CP-14 | Migração V4→V5 preserva seleção e desconto histórico com novas referências nulas | `MigracaoPromocionalTests.upgradeDaV4PreservaCarrinhoPedidoEDescontosAnteriores` |
+| T-CP-15 | Carga dev repetida não duplica nem restaura contadores; campanha automática inicia inativa | `PromocoesDemonstracaoTests.repeticaoDaCargaNaoDuplicaNemRestauraUtilizacoes` |
+
+Os testes E5 usam regras puras e PostgreSQL/Testcontainers. Concorrência usa threads e transações independentes; falhas controladas ocorrem depois de escritas reais. A regressão mantém os testes do checkout/carrinho sem campanhas, a confirmação antiga sem benefícios e ArchUnit, incluindo a limitação das implementações de promoções ao domínio próprio/infra. A ausência da carga fora de dev é garantida pelo perfil e pela carga inexistente nos contextos de integração sem dev; nenhuma campanha é criada automaticamente nos testes normais.
+
+T-CP-16: `PromocoesCuponsIntegracaoTests.beneficioZeroNaoConsomeEFaltaDeEstoqueNaoGastaCupom` verifica que frete zero não consome utilização e que falta de estoque não gasta cupom. O teste de rollback após consumo também é parametrizado para falha depois da confirmação persistida do pedido. A carga fora de dev é verificada pela ausência do bean no contexto normal. O código com 40 caracteres e espaços externos é normalizado antes da validação de comprimento.
+
+Evidência E5 em 2026-10-22: `./mvnw -o verify` — BUILD SUCCESS, 540 testes, zero falhas, erros ou ignorados; JAR gerado. São 32 casos novos nas classes E5 (`PromocoesDominioTests`: 12, `PromocoesCuponsIntegracaoTests`: 18, `MigracaoPromocionalTests`: 1, `PromocoesDemonstracaoTests`: 1), além da regra ArchUnit adicional. `openspec validate promocoes-cupons --strict` aprovado.
+
+
+## Pagamento e idempotência — E6
+
+| Cobertura | Evidência |
+|---|---|
+| Invariantes, confirmação terminal, valor zero e recuperação de estorno | `PagamentoDominioTests` |
+| Tradução de três APIs, resultado síncrono/pendente e extensão por novo fornecedor | `PagamentoDominioTests.adaptersTraduzemTresApisEUsamChavesEstaveis`, `novoFornecedorRegistradoSubstituiCartaoEPreservaOriginal` |
+| Unicidade por pedido/transação, inserção idempotente sem rollback-only | `PagamentoPersistenciaTests` |
+| Upgrade V5→V6 preserva pedido/desconto antigo, sem fabricar cobranças | `MigracaoPagamentoTests` |
+| JWT, propriedade, respostas inválidas, cartão/PIX/boleto e histórico SISTEMA | `PagamentoIntegracaoTests` |
+| Inícios, confirmações, cancelamentos e retentativas concorrentes | `PagamentoIntegracaoTests` (threads e transações reais com timeout) |
+| Rollback após falha do estoque ou observador e reenvio | `PagamentoIntegracaoTests.falhaNoEstoqueTambemPermiteReenvio`, `falhaDeOuvinteDesfazConfirmacaoHistoricoEEstoqueParaReenvio`, `falhaNaDevolucaoDoCupomDesfazRecusaEPermiteReenvio` |
+| Cancelamento pago/em preparação, estorno único, exceção/falha recuperável e legado | `PagamentoIntegracaoTests` |
+| Rota temporária ausente da API e OpenAPI | `PagamentoIntegracaoTests.atalhoRemovidoEInexistenteNoOpenApi` |
+| Regressão de reserva real e cupons usando nova integração | `CheckoutIntegracaoTests`, `PromocoesCuponsIntegracaoTests` |
+
+Os testes de contrato/estado do atalho temporário foram substituídos por fluxos reais de cobrança e confirmação; não há aprovação direta por cliente. Testcontainers usa PostgreSQL 17 e Flyway V6. O novo ouvinte de teste demonstra Observer sem alteração no domínio pedido. A troca de fornecedor é demonstrada registrando outra implementação no contrato; não há alteração nos consumidores centrais.
+
+Evidência E6 em 2026-10-22: `./mvnw clean verify` — BUILD SUCCESS, **562 testes**, zero falhas, erros ou ignorados; JAR gerado. As quatro classes de pagamento somam 26 casos (5 de domínio/adapters, 2 de persistência, 1 de migração e 18 de integração), substituindo os quatro casos exclusivos do atalho removido e mantendo toda a regressão anterior. `openspec validate pagamento-idempotencia --strict` e `git diff --check` aprovados.
+
+
+## Entrega e frete — E7
+
+| Cobertura | Evidência |
+|---|---|
+| Todas as UFs/regiões, duas APIs distintas, tarifas e cobertura configuráveis, invariantes e duplicidade | `EntregaDominioTests` |
+| JWT/CLIENTE, propriedade de endereço, 400/401/403/404/409 e seleção obrigatória | `EntregaIntegracaoTests.segurancaValidacaoESemSelecaoNaoHaFreteImplicito` |
+| Consulta sem escrita, frete bruto/líquido e preço composto | `opcoesRegionaisSemEscritaEPrecoComposto` |
+| Novo bean de transportadora selecionado sem mudar checkout | `novaTransportadoraESelecionadaSemMudarCheckout` |
+| Prazo/modalidade com mesmo preço e tarifa alterada com frete grátis | `prazoOuModalidadeDeMesmoPrecoExigemConfirmacao`, `freteGratisNaoOcultaTarifaAlteradaETetoNaoDuplicaAbatimento` |
+| Total 261 com benefícios e cotação, política exclusiva e redução residual por modalidade | `total261ComFreteGratisEPromocoesECupom`, `promocaoExclusivaBloqueiaFreteGratisEReducaoFicaNoAlvoCorreto` |
+| Perda de cobertura sem fallback e falha parcial/total (503) | `perdaDeCoberturaRetornaOpcoesSemTrocarAutomaticamente`, `falhasDeProvedorDiferemDeCoberturaENaoGeramZero` |
+| Snapshot persistido após mudança de cotação, pago até ENTREGUE | `snapshotPagoAteEntregaPermaneceMesmoDepoisDeMudarCotacao` |
+| Cupom de frete consumido/devolvido uma vez e estorno original; recusa repetida sem estorno | `cupomDeFreteConsumidoEDevolvidoUmaVezNoEstornoOriginal`, `recusaDePagamentoDevolveCupomDeFreteSemGerarEstorno` |
+| Upgrade V6→V7 preserva pedido pago/cobrança/confirmação sem fabricar modalidade | `MigracaoEntregaTests` |
+| Regressão de rollback/concorrência com entrega cotada | `CheckoutIntegracaoTests`, `PromocoesCuponsIntegracaoTests`, `PagamentoIntegracaoTests` |
+| Demonstração dev idempotente com modalidade e ausência fora de dev | `UsuariosDeDemonstracaoTests`, `UsuariosDeDemonstracaoForaDoDevTests` |
+
+Os exemplos de total de compra nos testes E4b–E6 foram atualizados com a tarifa padrão de R$ 25 em SP; o carrinho anterior à escolha de entrega mantém seu resumo sem cotação. A regressão de benefício zero agora cria campanha de frete grátis para zerar o residual do cupom, em vez de desativar artificialmente o frete da produção. Dados legados e testes internos de estado continuam sem obrigação de inventar modalidade histórica.
+
+Evidência E7 em 2026-10-22: `./mvnw -o clean verify` — BUILD SUCCESS, **584 testes**, zero falhas, erros ou ignorados; JAR gerado. As três classes E7 somam 22 casos: EntregaDominioTests (9, incluindo cinco regiões parametrizadas), EntregaIntegracaoTests (12) e MigracaoEntregaTests (1). Regressão E3–E6, ArchUnit e demonstração dev aprovadas. `openspec validate entrega-frete --strict` e `git diff --check` passaram.
+
+
+### E8 — grupo 1: notificações implementadas
+
+| Cenário | Evidência |
+|---|---|
+| T-ID-03: replay sequencial e concorrente não duplica comunicação | `PagamentoIntegracaoTests`: cartão repetido, boleto recusado repetido, duas confirmações simultâneas e replay após cancelamento |
+| T-EV-01: efeitos comerciais e comunicação independentes | `NotificacoesIntegracaoTests` registra canal/interessado adicionais; `PagamentoIntegracaoTests` verifica mensagem única e baixa real |
+| T-EV-02: falha de comunicação não desfaz pagamento | `falhaDeCanalNaoDesfazPagamentoNemMudaRespostaOuReplay`; `EnviarNotificacoesTests` confirma continuidade dos demais canais |
+| Cinco acontecimentos, destinatário correto e envio somente após commit | `NotificacoesIntegracaoTests.todosOsAcontecimentosChegamAoNovoCanalApenasDepoisDoCommit` |
+| Rollback e evento sem transação não enviam | `NotificacoesIntegracaoTests.rollbackNaoEnviaENaoHaFallbackForaDaTransacao`; falha de ouvinte/cupom na integração de pagamento |
+| Resolução ausente/falha, configuração inválida e logs sem dados sensíveis | `EnviarNotificacoesTests` |
+| Cancelamento notificado devolve cupom e estoque uma vez | `PagamentoIntegracaoTests.cupomDevolvidoUmaVezNoCancelamentoNotificado` |
+| Pedido/pagamento não dependem da comunicação | ArchUnit `pedidoEPagamentoNaoDependemDeNotificacao` |
+
+Em 2026-10-22: seleção de testes `PagamentoIntegracaoTests,NotificacoesIntegracaoTests,EnviarNotificacoesTests,RegrasDeArquiteturaTests` aprovada (36 testes). `./mvnw -o clean verify` aprovado: **592 testes, zero falhas/erros/ignorados**, JAR gerado em `target/ecommerce-0.0.1-SNAPSHOT.jar`. São sete casos novos de notificações/pagamento, uma regra ArchUnit nova e novas asserções nos cenários comerciais existentes. Evidência detalhada em `/tmp/bdr-notificacoes-verify.log`. Auditoria (T-EV-03) e sua consulta continuam pendentes; esta execução valida o grupo 1 e as regressões anteriores.
+
+### E8 — grupo 2: auditoria transacional
+
+`OperacaoAdministrativaTests` verifica campos obrigatórios, snapshot profundamente imutável, rejeição de credenciais aninhadas e objetos arbitrários. `AuditoriaIntegracaoTests` verifica ator por JWT real e perfis administrativos, extensão por novo interessado, categorias, produtos/variações, preços e componentes de combos, ajuste de estoque e rejeição negativa, campanhas/cupons e conflito de versão, usuários sem credenciais, estados e cancelamento administrativo pago. Confere contagens exatas em operações compostas, ausência de trilha para cliente/sistema, rollback posterior e falha de persistência da auditoria revertendo a mutação.
+
+`MigracaoAuditoriaTests` aplica V1–V7 com pedido pago/cobrança/confirmação existentes e migra para V8: valores e resultado são preservados, auditoria começa vazia e permanece após remover o recurso. ArchUnit inclui auditoria na proteção de dependências do compartilhado. Esses testes cobrem o registro T-EV-03; consulta/filtros/permissões da trilha permanecem no grupo 3.
+
+Asserções adicionais em `PagamentoIntegracaoTests` confirmam ausência de trilha administrativa no pagamento/replay sequencial e concorrente, mantendo somente o cancelamento administrativo. `UsuariosDeDemonstracaoTests` confere auditoria vazia após carga dev repetida sem ator.
+
+Em 2026-10-23, validação final do grupo 2: `./mvnw -o clean verify`, **BUILD SUCCESS, 607 testes, zero falhas/erros/ignorados** e JAR gerado. Inclui migração V7→V8, auditoria, carga dev, asserções de replay e regressões E3–E7. Log: `/tmp/bdr-auditoria-verify-final.log`. OpenSpec strict e git diff --check aprovados. A consulta administrativa foi implementada no grupo 3 e a validação final (649 testes) está registrada no fechamento de 2026-10-23.
+
+### E8 — grupo 3: consulta e demonstração
+
+`ConsultarAuditoriaTests` contém dez testes de integração com PostgreSQL e JWT real: ordenação por momento/id (incluindo empates), detalhes anterior/novo, filtros isolados/combinados, intervalo inclusivo e equivalência de fuso, páginas de tamanho 1 e 100, total completo e página vazia, deslocamento grande sem overflow, operação desconhecida, filtros malformados rejeitados antes do banco, 401/403 para todos os perfis sem ADMIN, proteção na aplicação e ausência de rotas de escrita. OpenAPI é conferido contra os seis parâmetros e respostas 200/400/401/403.
+
+`PagamentoIntegracaoTests.roteiroDeCompraNotificadaEConsultaDaTrilha` executa por HTTP MockMvc o roteiro preço→campanha→checkout→PIX aprovado→cancelamento pago→consulta da trilha, com banco real. Verifica comunicação de criação/aprovação/cancelamento, total e estorno, reposição e exatamente três registros administrativos, incluindo consulta com usuário/operação e intervalo inclusivo. `falhaDeCanalNaoDesfazPagamentoNemMudaRespostaOuReplay` injeta falha no canal por spy de teste e confirma sucesso HTTP, pagamento/estoque preservados e replay sem duplicação. Os comandos para reprodução estão em [10-execucao.md](10-execucao.md).
+
+Evidência do grupo 3 em 2026-10-23: comando de reprodução de docs/10 aprovado com **62 testes, zero falhas/erros/ignorados (BUILD SUCCESS)**, incluindo consulta, roteiro de compra notificada/falha de canal, auditoria transacional, migração e ArchUnit. Log `/tmp/bdr-auditoria-grupo3-tests.log`. OpenSpec strict e git diff --check aprovados. `clean verify` completo e geração do JAR atualizado permanecem no grupo 4; progresso 15/17 tarefas.
+
+## Relatórios gerenciais — E9 (`implementado`)
+
+`RelatoriosGerenciaisTests` (T-RL-01, integração com PostgreSQL e JWT real) semeia por SQL dez pedidos de datas e descontos controlados no período de março de 2026: quatro vendas (415,00, 200,00 pago exatamente no início do período, 100,00 pago exatamente no fim e 84,99) e seis que não são venda (pago e depois cancelado, pago em fevereiro e cancelado em março, aguardando pagamento, pago em abril, cancelado sem pagar e cancelado em abril), com itens e descontos grandes para denunciar inclusão indevida. Confere valor total 799,99, 4 pedidos, ticket médio 200,00 (199,9975 pelo arredondamento bancário), descontos 80,00 e 3 cancelamentos no período; bordas inclusivas, fuso e `inicio` igual a `fim`; período sem dados com zeros e listas vazias; produtos somados entre pedidos, ordenação por quantidade e SKU e limite (padrão 10); campanhas por referência, promoção e cupom no mesmo pedido, desconto de frete, legado sem referência, ordenação e coerência da soma com o total de descontos do resumo. Um teste usa pedidos reais criados pelos serviços do pedido (`PedidosPersistidosParaTeste`) com o histórico reposicionado no tempo.
+
+Também cobre validação (período ausente, vazio, malformado, sem fuso, invertido e `limite` inválido retornam 400 sem consultar a porta), segurança (401; `ADMIN` e `OPERADOR_COMERCIAL` com 200; `PROMOCOES` só em campanhas; `ESTOQUE` e `CLIENTE` com 403; o serviço de aplicação nega fora da API), ausência de rotas de escrita (405, dados intactos) e OpenAPI (rotas, parâmetros e respostas 200/400/401/403). `RelatoriosDominioTests` cobre período, limite e ticket médio. ArchUnit ganhou duas regras para o módulo. Não há teste de extensibilidade porque a change não tem ponto de variação nem pattern.
+
+Evidência em 2026-10-23: `./mvnw -o clean verify` — **BUILD SUCCESS, 649 testes, zero falhas/erros/ignorados** (29 novos: 13 de `RelatoriosDominioTests` e 16 de `RelatoriosGerenciaisTests`, mais duas regras ArchUnit) e JAR gerado. `openspec validate relatorios-gerenciais --strict` e `git diff --check` aprovados.

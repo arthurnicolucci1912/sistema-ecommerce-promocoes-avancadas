@@ -41,11 +41,13 @@ public class OuvinteDePedidosDoEstoque {
     }
 
     @EventListener
+    @org.springframework.core.annotation.Order(100)
     public void ao(PedidoPagamentoRecusado evento) {
         reservas.liberar(evento.pedidoId());
     }
 
     @EventListener
+    @org.springframework.core.annotation.Order(100)
     public void ao(PedidoCancelado evento) {
         acaoDoCancelamentoPorOrigem.getOrDefault(evento.de(), pedidoId -> { }).accept(evento.pedidoId());
     }

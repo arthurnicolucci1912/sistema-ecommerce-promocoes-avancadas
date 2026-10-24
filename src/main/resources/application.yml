@@ -1,6 +1,10 @@
 spring:
   application:
     name: ecommerce
+  jackson:
+    deserialization:
+      # Identificadores, versoes e quantidades inteiras nao podem truncar valores fracionarios.
+      accept-float-as-int: false
   datasource:
     url: ${DB_URL}
     username: ${DB_USER}

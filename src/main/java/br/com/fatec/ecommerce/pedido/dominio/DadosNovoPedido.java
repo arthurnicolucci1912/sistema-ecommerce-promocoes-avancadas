@@ -18,7 +18,12 @@ import java.util.Objects;
  * @param total          subtotal menos descontos mais frete
  */
 public record DadosNovoPedido(Long clienteId, EnderecoEntrega endereco, List<Item> itens, List<Desconto> descontos,
-        Dinheiro frete, Dinheiro subtotal, Dinheiro totalDescontos, Dinheiro total) {
+        Dinheiro frete, Dinheiro subtotal, Dinheiro totalDescontos, Dinheiro total, DadosEntregaSelecionada opcaoEntrega) {
+    /** Snapshots legados e testes de ciclo de vida podem nao possuir modalidade registrada. */
+    public DadosNovoPedido(Long clienteId, EnderecoEntrega endereco, List<Item> itens, List<Desconto> descontos,
+            Dinheiro frete, Dinheiro subtotal, Dinheiro totalDescontos, Dinheiro total) {
+        this(clienteId,endereco,itens,descontos,frete,subtotal,totalDescontos,total,null);
+    }
 
     /** Item do snapshot: identificacao, nome e variacao do produto no momento da compra. */
     public record Item(String sku, String nomeProduto, String descricaoVariacao, int quantidade,
@@ -26,7 +31,11 @@ public record DadosNovoPedido(Long clienteId, EnderecoEntrega endereco, List<Ite
     }
 
     /** Desconto aplicado, com nome (descricao) e valor. */
-    public record Desconto(String descricao, OrigemDesconto origem, AlvoDoDesconto alvo, Dinheiro valor) {
+    public record Desconto(String descricao, OrigemDesconto origem, AlvoDoDesconto alvo, Dinheiro valor,
+            Long referenciaId, String codigo) {
+        public Desconto(String descricao, OrigemDesconto origem, AlvoDoDesconto alvo, Dinheiro valor) {
+            this(descricao, origem, alvo, valor, null, null);
+        }
     }
 
     public DadosNovoPedido {

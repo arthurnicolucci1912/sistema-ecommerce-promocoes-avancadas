@@ -2,7 +2,7 @@
 
 > **Objetivo:** descrever as entidades do domínio, seus relacionamentos e as decisões de modelagem sobre variações de produto, categorias hierárquicas, combos/kits e preservação do histórico comercial nos pedidos.
 > **Etapas do roadmap relacionadas:** E2 a E8 (cada etapa refina as entidades que introduz). Ver [08-roadmap.md](08-roadmap.md).
-> **Status:** parcialmente `implementado`: `Usuario`, `Cliente` e `Endereco` (E1) refletem o código e a migração `V1` (seção 1.1), o agregado do pedido (E4, change `pedido-ciclo-vida`) reflete o código e a migração `V2` (seção 1.2), e o catálogo e o estoque (E2, change `catalogo-estoque`) refletem o código e a migração `V3` (seção 1.3). O restante é rascunho (diagrama preliminar; decisões marcadas como `proposto` podem mudar na etapa que implementa a entidade).
+> **Status:** implementado (E1–E9): o modelo reflete o código e as migrações até V8 (usuário, cliente, endereço, pedido, catálogo, estoque, carrinho, promoções, cobrança, estorno, frete e auditoria); os relatórios gerenciais (E9) leem os snapshots do pedido sem entidade nova (última seção). Passagens marcadas como proposta ou premissa no corpo registram a decisão original da etapa.
 
 ## 1. Entidades e responsabilidades
 
@@ -20,7 +20,7 @@
 | SaldoEstoque | Saldo de uma variação: quantidade disponível e quantidade reservada (nunca negativas). Guarda só o id da variação. | E2 (`implementado`) |
 | ReservaEstoque | Reserva de unidades de uma variação vinculada a um pedido (só o id do pedido), com situação `ATIVA`, `LIBERADA`, `BAIXADA` ou `REPOSTA`. | E2 (`implementado`); a expiração fica para a E6 |
 | Carrinho | Itens e quantidades de um cliente, mais cupom aplicado e valores calculados. Não reserva estoque. | E3 |
-| ItemCarrinho | Variação e quantidade dentro de um carrinho. | E3 |
+| ItemCarrinho | SKU de item vendável (variação ou combo), quantidade e referências comerciais dentro de um carrinho. | E3 |
 | Pedido | Resultado do checkout. Guarda a situação do ciclo de vida, os valores comerciais da compra e o endereço de entrega copiado. Agregado raiz (ver 1.2). | E4 (`implementado`) |
 | ItemPedido | Linha do pedido com cópia dos dados comerciais no momento da compra (snapshot). | E4 (`implementado`) |
 | DescontoPedido | Desconto concedido no pedido (promoção ou cupom), com descrição, origem, alvo (itens ou frete) e valor copiados. Substitui, no código, o rascunho `PromocaoAplicada`. | E4 (`implementado`) |
@@ -488,3 +488,54 @@ O segundo grupo do diagrama mostra as **condições de elegibilidade** combináv
 | Tipo `Dinheiro` dedicado ou `BigDecimal` direto | decidido na E1: tipo `Dinheiro` em `compartilhado.dominio` (`implementado`) |
 | `Usuario`/`Perfil` em `seguranca`; `Cliente` referencia `usuarioId`; endereço removido por inativação, com índice parcial de principal | `implementado` (E1) |
 | Mecanismo de concorrência no estoque: **atualização condicional atômica** (`disponivel >= quantidade`), não `@Version` nem lock pessimista | decidido e `implementado` na E2 (RN-21, ver [05-regras-negocio.md](05-regras-negocio.md)) |
+
+## Carrinho: modelo efetivo da E3
+
+`Carrinho` é agregado por cliente com versão otimista e revisão de alterações. `ItemCarrinho` é embutido e guarda SKU, quantidade positiva, id/nome e preço de referência do item vendável. Variações e combos usam a mesma linha comercial; componentes físicos não são cobrados como linhas adicionais. A migração V4 cria `carrinho` (cliente único, FK e versão) e `item_carrinho` (chave carrinho/SKU e restrições de quantidade/preço). Não há FK para catálogo: referências permitem exibir e remover itens que saiam de venda. Cupom pertence à E5 e não está persistido nesta etapa.
+
+Verificação: `CarrinhoTests` e `CarrinhoPersistenciaTests` cobrem invariantes, gravação/leitura em sessões distintas, restrições da V4 e conflito entre alterações concorrentes apenas nas linhas.
+
+## Checkout: modelo efetivo da E4b
+
+`CheckoutFacade` coordena uma compra sem introduzir entidade ou tabela própria. `CompraRevalidada` reúne a seleção carregada, a prévia comercial, o snapshot de `DadosNovoPedido` e a demanda física agregada. `PreviaCheckout` contém `confirmacao` e `insuficiencias`; `ConfirmacaoCheckout` guarda versão do carrinho, linhas (SKU, nome, descrição da variação, quantidade, preço unitário e subtotal), descontos, subtotal, frete, total e endereço copiado.
+
+A confirmação é uma expectativa do comprador, comparada com dados correntes; os preços recebidos não alimentam o pedido. A descrição da variação vem do contrato polimórfico do catálogo, com atributos ordenados (`cor: azul, tamanho: M`); kits não recebem descrição artificial e mantêm seu preço próprio. Componentes físicos são agregados para reserva e não viram linhas comerciais extras.
+
+Ao concluir, o pedido passa de CRIADO para AGUARDANDO_PAGAMENTO e `Carrinho.esvaziar()` incrementa a revisão do agregado. Pedido, histórico, reserva, saldos e limpeza participam de uma única transação. Frete é zero e descontos são vazios na E4b; promoções/cupons, cobrança e modalidade de entrega pertencem às E5–E7. Testes: `checkout.aplicacao.RevalidarCheckoutTests`, `ConfirmacaoCheckoutTests` e `CheckoutIntegracaoTests`.
+
+
+## Promoções e cupons: modelo efetivo da E5
+
+`PromocaoConfig` guarda nome, tipo, parâmetros, condição, vigência UTC, prioridade, modo de acumulação, ativo, criação e versão. `Cupom` guarda código único normalizado/imutável, benefício, condições, compatibilidade com promoções e limites global/individual. A V5 cria `promocao_config`, `cupom`, `saldo_cupom` e `uso_cupom`, acrescenta `carrinho.cupom_codigo` e referências opcionais (`referencia_id`, `codigo`) ao desconto do pedido. Não há uma tabela por tipo de promoção. Parâmetros e árvores declarativas ficam em JSONB, com validação pelos criadores registrados.
+
+A árvore `CondicaoConfig` representa E/OU/NÃO e folhas de primeira compra, mínimo, categoria, SKU, região, período e perfil autenticado. Categorias incluem ancestrais; kits são avaliados pelo SKU/preço próprios, sem desconto adicional dos componentes físicos. Primeira compra significa ausência de aprovação de pagamento no histórico até a avaliação; cancelamentos/recusas sem pagamento não eliminam a elegibilidade. Pagamento aprovado e posteriormente cancelado continua contando.
+
+O cupom selecionado é parte versionada do carrinho. `uso_cupom` identifica uma utilização por pedido, seu cliente e cupom, estado CONSUMIDO/DEVOLVIDO e instantes. Só uma compra concluída com benefício positivo consome; prévia e seleção não consomem. Devolução preserva o histórico e libera a vaga global/individual uma única vez. O snapshot do pedido conserva nome, origem, alvo, valor, referência e código disponíveis no momento da compra; registros anteriores à V5 mantêm as referências opcionais nulas.
+
+
+## Pagamento persistente (E6)
+
+`Cobranca` preserva pedido, fornecedor, forma, total e transação externa, com situação PENDENTE/APROVADO/RECUSADO e datas. Há no máximo uma cobrança por pedido e uma cobrança por transação externa. O total vem do snapshot; inclusive total zero é aceito pelos simuladores.
+
+`ConfirmacaoPagamento` identifica o resultado terminal recebido. Sua chave é a transação externa da cobrança: repetição com o mesmo resultado é no-op, resultado divergente é conflito. A gravação e os efeitos comerciais compartilham a transação.
+
+`Estorno` preserva pedido, transação original, total, situação PENDENTE/FALHOU/CONCLUIDO, comprovante externo, tentativas, último erro e data. Existe no máximo um por pedido/cobrança. Pedido legado pago pelo antigo atalho pode ter pendência sem transação conhecida; nunca se inventa uma cobrança histórica. Referências ao módulo pedido são IDs, sem associações JPA. Na V6 as tabelas são `cobranca`, `confirmacao_pagamento` e `estorno`.
+
+
+## Entrega selecionada (E7)
+
+`OpcaoEntrega` identifica fornecedor/modalidade e uma cotação bruta com prazo estimado em dias úteis após aprovação. Provedores simulados calculam por região e modalidade; o catálogo não fornece peso físico e nenhum peso é inventado para cobrar frete.
+
+O pedido incorpora `DadosEntregaSelecionada`: código, fornecedor, modalidade e prazo positivo, em quatro colunas `opcao_entrega_*` da V7, opcionais em conjunto para preservar legados. O snapshot não referencia configuração ou transportadora. Cotação posterior não muda endereço, prazo, frete nem total de pedido comprado. `frete` continua bruto; `freteLiquido` é derivado de frete menos descontos FRETE, sem coluna redundante. Novas compras HTTP exigem seleção; pedidos legados expõem opcaoEntrega=null.
+
+### Auditoria administrativa — E8, grupo 2
+
+`RegistroAuditoria` é uma entidade de inclusão em `auditoria.dominio`: id, usuarioId, ocorridoEm, operacao, recursoTipo, recursoId e detalhes JSONB. A V8 cria `auditoria_operacao`, com índices de momento/id, usuário/momento e operação/momento, sem FK ou remoção em cascata. Não fabrica registros anteriores à implantação e preserva pedidos/cobranças V7. Não há setters, update/delete na porta `RegistrosAuditoria` nem rotas de escrita. A consulta administrativa é o `GET /api/admin/auditoria` (grupo 3).
+
+`OperacaoAdministrativa`, em `compartilhado.dominio`, copia profundamente mapas/listas JSON e rejeita identificações inválidas, objetos arbitrários e chaves de credenciais, inclusive aninhadas. Cada evento descreve o estado anterior e posterior; criação usa anterior nulo e remoção usa posterior nulo. Valores monetários são números decimais, e componentes/variações são snapshots, sem referência a entidades mutáveis.
+
+### Relatórios gerenciais (E9, `implementado`)
+
+O módulo `relatorio` não cria entidades nem tabelas (nenhuma migração nova; a última continua a V8). Ele lê os snapshots já gravados em `pedido`, `pedido_item`, `pedido_desconto` e `pedido_historico` e devolve registros de resultado imutáveis: `ResumoVendas`, `ProdutoMaisVendido` e `DescontoPorCampanha`, mais o `PeriodoRelatorio` (inicio e fim inclusivos) e o `FiltroProdutosMaisVendidos` (período e limite de 1 a 50).
+
+**Venda** é o pedido com transição para `PAGO` em `pedido_historico` dentro do período e cuja situação atual não é `CANCELADO`; o valor é `pedido.total`. O período usa o instante do pagamento, não o de criação. Pedido pago e depois cancelado deixa de ser venda; o cancelamento é contado em `quantidadeCancelamentos` pelo instante da transição para `CANCELADO`, tenha o pedido sido pago ou não. Produtos são agrupados por SKU, nome e descrição da variação do próprio pedido (o snapshot, não o catálogo atual). Descontos são agrupados por `(origem, referencia_id)`; descontos legados sem `referencia_id` (anteriores à V5) são agrupados por `(origem, descricao)`.

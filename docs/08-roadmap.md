@@ -2,7 +2,7 @@
 
 - **Objetivo:** organizar a construção do sistema em 9 etapas incrementais, cada uma mapeada para uma futura change do OpenSpec, indicando escopo, documentos a atualizar, patterns introduzidos e o critério de "sistema executável" ao final. Atende à exigência do enunciado de desenvolvimento incremental com o sistema sempre executável.
 - **Etapas do roadmap relacionadas:** todas (este é o documento do roadmap).
-- **Status:** proposto (ordem e divisão podem ser revistas, registrando o motivo, na change da etapa afetada). As etapas 1 e 4a (`fundacao-projeto` e `pedido-ciclo-vida`) foram arquivadas; a etapa 2 (`catalogo-estoque`) está implementada e em revisão (verificação final pendente), feita por Arthur embora a atribuição original seja do Lucas; a etapa 4 foi dividida em duas changes, `pedido-ciclo-vida` (arquivada) e `checkout` (a fazer, depois de `carrinho-compras`). A sequência de execução está na seção 7.
+- **Status:** implementado (E1–E9): todas as etapas foram concluídas e arquivadas (E1 e E4a em 2026-10-14, E2 em 2026-10-19 e E3 a E9 em 2026-10-23), com `./mvnw -o clean verify` em BUILD SUCCESS e 649 testes. A etapa 2 (`catalogo-estoque`) foi feita por Arthur embora a atribuição original seja do Lucas; a etapa 4 foi dividida em duas changes, `pedido-ciclo-vida` e `checkout`. A sequência de execução está na seção 7.
 
 Documentos relacionados: [07-casos-de-uso.md](07-casos-de-uso.md), [09-testes.md](09-testes.md), [10-execucao.md](10-execucao.md), [05-regras-negocio.md](05-regras-negocio.md), [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md).
 
@@ -34,7 +34,7 @@ flowchart LR
 | # | Etapa | Change OpenSpec sugerida | Patterns que entram |
 |---|---|---|---|
 | 1 | Fundação | `fundacao-projeto` | nenhum obrigatório |
-| 2 | Catálogo e estoque | `catalogo-estoque` (implementada; em revisão) | Composite (combos), Observer (ouvintes do estoque) |
+| 2 | Catálogo e estoque | `catalogo-estoque` (arquivada em 2026-10-19) | Composite (combos), Observer (ouvintes do estoque) |
 | 3 | Carrinho | `carrinho-compras` | Chain of Responsibility (pipeline de preço, passos iniciais) |
 | 4a | Pedido e ciclo de vida | `pedido-ciclo-vida` (implementada) | State, Observer (lado publicador) |
 | 4b | Checkout | `checkout` | Facade |
@@ -42,7 +42,7 @@ flowchart LR
 | 6 | Pagamento e idempotência | `pagamento-idempotencia` | Adapter |
 | 7 | Entrega e frete | `entrega-frete` | Strategy/Adapter (provedores de frete, ver nota) |
 | 8 | Eventos, notificações e auditoria | `eventos-notificacoes-auditoria` | Observer |
-| 9 | Relatórios | `relatorios-gerenciais` | nenhum obrigatório |
+| 9 | Relatórios | `relatorios-gerenciais` | nenhum obrigatório (nenhum aplicado) |
 
 Os patterns e suas justificativas estão em [04-design-patterns.md](04-design-patterns.md). Nota sobre a etapa 7: o contrato de provedor de frete segue o mesmo princípio do gateway de pagamento (interface própria do domínio mais adaptadores). Se a equipe adotar Strategy para o cálculo de custo por modalidade, ele deve ser registrado em 04 apenas se houver o vínculo concreto com o enunciado (custo varia por região, peso, quantidade, valor ou modalidade).
 
@@ -71,11 +71,11 @@ Os patterns e suas justificativas estão em [04-design-patterns.md](04-design-pa
   - Operação de reserva/liberação/baixa no serviço de estoque, com proteção de concorrência (atualização condicional atômica ou lock otimista, a decidir; ver [05-regras-negocio.md](05-regras-negocio.md)). A reserva só será acionada pelo checkout (etapa 4), mas o mecanismo e seu teste de concorrência nascem aqui.
 - **Documentos a atualizar:** `02-modelo-dominio.md`, `03-arquitetura.md`, `04-design-patterns.md` (Composite e Observer), `05-regras-negocio.md` (estoque), `07-casos-de-uso.md`, `09-testes.md`, `10-execucao.md`.
 - **Patterns que entram:** Composite (combos: item vendável, com a variação como folha e o combo como composto) e Observer (ouvintes do estoque: `OuvinteDePedidosDoEstoque` e `OuvinteDeCatalogoDoEstoque`). As categorias são uma árvore simples e **não** usam pattern.
-- **Situação:** implementada pela change `catalogo-estoque` (responsável original: Lucas; implementada por Arthur), em revisão até a verificação final e o arquivamento. A reserva só é acionada pelo checkout (etapa 4b); até lá, só o pedido de demonstração a usa.
+- **Situação:** implementada pela change `catalogo-estoque` (responsável original: Lucas; implementada por Arthur), verificada e arquivada em 2026-10-19. A reserva só é acionada pelo checkout (etapa 4b); até lá, só o pedido de demonstração a usa.
 - **Critério de sistema executável:** administrador cadastra categorias, produtos, variações e estoque; cliente consulta o catálogo por categoria (incluindo subcategorias); a regra de reserva rejeita quantidade acima do disponível e resiste a requisições concorrentes pela última unidade.
 
 ### Etapa 3 - Carrinho
-- **Change sugerida:** `carrinho-compras`
+- **Change:** `carrinho-compras`. **Situação:** implementação concluída e arquivada em 2026-10-23. Atribuição original: Lucas. Evidência: `./mvnw -o verify` em 2026-10-21, 480 testes sem falha/erro/skip; `openspec validate carrinho-compras --strict` aprovado.
 - **Escopo:**
   - Carrinho por cliente: incluir, alterar quantidade, remover (UC-04); suporte a combos/kits.
   - Recálculo a cada modificação, com resumo de preço (subtotal e total; descontos e frete ficam zerados até as etapas 5 e 7), exibido de forma que o cliente entenda a composição (UC-06).
@@ -98,7 +98,7 @@ A etapa foi dividida porque o pedido (snapshot, ciclo de vida, cancelamento, his
   - Serviços `CriarPedido` e `ConfirmarReservaDoPedido` (usados pelo checkout), `TransicionarPedido`, `ConsultarPedidos` e `CancelarPedidoDoCliente`.
   - API do cliente (listar, detalhar e cancelar os próprios pedidos) e administrativa (listar com filtro, detalhar, preparar, enviar, entregar e cancelar), com regra de cancelamento por perfil (UC-09, UC-10, UC-A07 a UC-A09).
   - Eventos de domínio de cada transição (`PedidoCriado`, `PedidoPago`, `PedidoPagamentoRecusado`, `PedidoEmPreparacao`, `PedidoEnviado`, `PedidoEntregue`, `PedidoCancelado`): lado publicador do Observer.
-  - **Temporário:** endpoint administrativo de pagamento simulado, que a etapa 6 remove.
+  - **Histórico E4:** houve endpoint administrativo temporário de pagamento; removido na E6 em favor de cobrança e confirmação identificada.
   - Pedido de demonstração do `cliente@demo.local` no perfil `dev`.
 - **Fora do escopo (próximas changes):** checkout, reserva, baixa e reposição de estoque, estorno e expiração automática do pagamento; os efeitos sobre outros módulos serão ouvintes dos eventos. (Os efeitos de estoque entraram depois, na etapa 2, como ouvintes, sem alterar o módulo `pedido`.)
 - **Documentos atualizados:** `02-modelo-dominio.md`, `03-arquitetura.md`, `04-design-patterns.md` (State e publicador do Observer), `05-regras-negocio.md` (RN-23, RN-26, RN-28), `06-ciclo-vida-pedido.md`, `07-casos-de-uso.md`, `09-testes.md`, `10-execucao.md`, `12-board.md`.
@@ -106,16 +106,16 @@ A etapa foi dividida porque o pedido (snapshot, ciclo de vida, cancelamento, his
 - **Critério de sistema executável:** o pedido de demonstração em `AGUARDANDO_PAGAMENTO` vai a `PAGO` pela simulação, avança até `ENVIADO` com `estoque@demo.local`, o cancelamento nesse estado responde 409 e o histórico é consultado pelo cliente; transição inválida gera erro e o cancelamento respeita o perfil.
 
 #### 4b. Checkout
-- **Change:** `checkout` (Arthur), depois de `carrinho-compras` (e de `catalogo-estoque`, para a reserva).
+- **Change:** `checkout` (Arthur), dependente de `carrinho-compras` e `catalogo-estoque`. **Situação:** implementação concluída em 2026-10-22 e arquivada em 2026-10-23. Evidência: `./mvnw -o verify`, 507 testes sem falhas, erros ou ignorados, JAR gerado; `openspec validate checkout --strict` aprovado.
 - **Escopo:**
-  - Checkout que transforma o carrinho válido em pedido (UC-07), revalidando preços, estoque, endereço e dados correntes; reserva de estoque tudo-ou-nada ao criar o pedido. Chama `CriarPedido` e `ConfirmarReservaDoPedido` na mesma transação, depois de reservar o estoque (o pedido nasce em `AGUARDANDO_PAGAMENTO`).
+  - Checkout que transforma o carrinho válido em pedido (UC-07), revalidando preços, estoque, endereço e dados correntes; reserva de estoque tudo-ou-nada ao criar o pedido. Na mesma transação chama `CriarPedido` para obter o id em `CRIADO`, reserva por esse id, chama `ConfirmarReservaDoPedido` e esvazia o carrinho com controle de versão. A compra só fica visível como concluída em `AGUARDANDO_PAGAMENTO`; falhas desfazem toda a tentativa.
   - Reação do estoque aos eventos do pedido: liberação da reserva no cancelamento e na recusa (ouvintes de `PedidoCancelado` e `PedidoPagamentoRecusado`, conforme o campo `de`). O estorno simulado entra na etapa 6.
 - **Documentos a atualizar:** `03-arquitetura.md`, `04-design-patterns.md` (Facade), `05-regras-negocio.md` (RN-18 a RN-22), `07-casos-de-uso.md` (diagrama de checkout), `09-testes.md`, `10-execucao.md`.
 - **Patterns que entram:** Facade (orquestração do checkout).
 - **Critério de sistema executável:** da inclusão no carrinho até a criação de um pedido em `AGUARDANDO_PAGAMENTO` com estoque reservado; estoque insuficiente bloqueia o checkout; cancelamento libera a reserva.
 
 ### Etapa 5 - Promoções e cupons
-- **Change sugerida:** `promocoes-cupons`
+- **Change:** `promocoes-cupons` (atribuição original: Amanda). **Situação:** implementação concluída em 2026-10-22 e arquivada em 2026-10-23; `./mvnw -o verify` aprovado com 540 testes, sem falhas/erros/ignorados, JAR gerado e `openspec validate promocoes-cupons --strict` aprovado.
 - **Escopo:**
   - Mecanismo de promoções configurável (nome, período, prioridade, acumulável ou exclusiva, parâmetros) e gestão administrativa (UC-A05).
   - Pelo menos 4 tipos de natureza distinta, por exemplo: leve 3 pague 2 (quantidade), percentual por categoria (catálogo), valor fixo acima de um mínimo (valor do carrinho), 10% na primeira compra (perfil do cliente) e frete grátis acima de um valor.
@@ -126,6 +126,7 @@ A etapa foi dividida porque o pedido (snapshot, ciclo de vida, cancelamento, his
   - Evidência de extensibilidade: incluir uma quinta promoção deve exigir apenas uma nova classe de tipo e seu registro, sem mexer nas existentes.
 - **Documentos a atualizar:** `02-modelo-dominio.md`, `03-arquitetura.md`, `04-design-patterns.md` (Strategy, Composite/Specification, Factory Method), `05-regras-negocio.md`, `07-casos-de-uso.md` (diagrama de promoções), `09-testes.md`.
 - **Patterns que entram:** Strategy (tipos de promoção e política de conflito), Composite/Specification (condições), Factory Method/registry (criar promoção a partir da configuração), Chain of Responsibility (novos passos do pipeline).
+- **Entrega E5:** cinco estratégias de promoção, condições E/OU/NÃO, política D4 trocável, benefícios de cupom, configuração persistente, seleção no carrinho, confirmação com origem/identidade, uso concorrente/devolução idempotente e demonstração dev. Na entrega original E5 o frete bruto era zero; E7 agora integra cotação simulada escolhida pelo cliente.
 - **Critério de sistema executável:** administrador cria promoções e cupons; o carrinho e o checkout mostram subtotal, cada desconto, frete e total; duas ou mais promoções válidas são resolvidas pela política definida; cupom inválido é rejeitado com motivo.
 
 ### Etapa 6 - Pagamento e idempotência
@@ -136,10 +137,11 @@ A etapa foi dividida porque o pedido (snapshot, ciclo de vida, cancelamento, his
   - Aprovado: `PAGO` e conversão da reserva em baixa. Recusado: `PAGAMENTO_RECUSADO` e liberação da reserva.
   - Cancelamento de pedido pago dispara estorno simulado.
   - Troca de fornecedor sem alterar as regras centrais (demonstrada trocando o adaptador).
-  - Nesta etapa a reação ao pagamento pode ser chamada direta entre serviços; a etapa 8 a converte em eventos.
-  - **Remover a simulação de pagamento** da change `pedido-ciclo-vida` (endpoint administrativo temporário `POST /api/admin/pedidos/{id}/pagamento-simulado`): o gateway passa a aprovar ou recusar o pedido pelas operações `confirmarPagamento` e `recusarPagamento` já existentes no pedido.
+  - E6 preserva os eventos e ouvintes já implementados para estoque/cupons e adiciona ouvinte de estorno; notificações permanecem na E8.
+  - **Atalho temporário removido na E6:** o gateway aprova/recusa pelas transições existentes, com cobrança identificada e confirmação administrativa autenticada.
 - **Documentos a atualizar:** `03-arquitetura.md`, `04-design-patterns.md` (Adapter), `05-regras-negocio.md` (idempotência, estorno), `06-ciclo-vida-pedido.md`, `07-casos-de-uso.md` (diagrama de pagamento), `09-testes.md`.
 - **Patterns que entram:** Adapter (gateways de pagamento).
+- **Entrega E6:** três fornecedores simulados com interfaces distintas, cobrança do próprio cliente, confirmação ADMIN idempotente e atômica, cancelamento com estorno único/recuperável e migração V6. `./mvnw clean verify`: 562 testes aprovados. Expiração automática permanece pendente de definição de prazo e rotina; não é fornecida por esta entrega.
 - **Critério de sistema executável:** compra completa até `PAGO` com baixa de estoque; pagamento recusado leva a `PAGAMENTO_RECUSADO` com a reserva liberada; a mesma confirmação enviada duas vezes produz um único efeito.
 
 ### Etapa 7 - Entrega e frete
@@ -154,9 +156,9 @@ A etapa foi dividida porque o pedido (snapshot, ciclo de vida, cancelamento, his
 - **Critério de sistema executável:** o cliente escolhe a modalidade, vê o custo composto no total, e o pedido pago pode ser preparado, enviado e entregue; frete grátis zera o frete quando a promoção é elegível; incluir um novo provedor não altera o checkout.
 
 ### Etapa 8 - Eventos, notificações e auditoria
-- **Change sugerida:** `eventos-notificacoes-auditoria`
+- **Change:** `eventos-notificacoes-auditoria` (Mateus: eventos/notificações; Amanda: auditoria, atribuições originais). **Situação:** concluída (grupos 1–4) e arquivada em 2026-10-23.
 - **Escopo:**
-  - Eventos de domínio (`PedidoCriado`, `PagamentoConfirmado`, `PagamentoRecusado`, `PedidoEnviado`, `PedidoCancelado`) e publicação pelos serviços de pedido e pagamento.
+  - Eventos de domínio (`PedidoCriado`, `PedidoPago`, `PedidoPagamentoRecusado`, `PedidoEnviado`, `PedidoCancelado`), mais `OperacaoAdministrativa` para auditoria e publicação pelos serviços de pedido e pagamento.
   - Listeners independentes: estoque (baixa/liberação), notificação e auditoria, de modo que nenhuma classe conheça todos os interessados.
   - Notificações por canal simulado (UC-11), com contrato de canal para futuros canais; falha de notificação não afeta o pedido.
   - Auditoria de operações administrativas (preço, campanhas, cancelamentos, etc.) com usuário e momento, e consulta (UC-A12).
@@ -172,7 +174,8 @@ A etapa foi dividida porque o pedido (snapshot, ciclo de vida, cancelamento, his
   - Consultas de leitura sobre os snapshots dos pedidos, sem alterar o modelo transacional.
   - Fechamento da entrega: revisão da documentação, ajuste final de `10-execucao.md`, roteiro e dados da demonstração.
 - **Documentos a atualizar:** `02-modelo-dominio.md`, `07-casos-de-uso.md`, `09-testes.md`, `10-execucao.md`, `README.md`; revisão geral de todos os `Status`.
-- **Patterns que entram:** nenhum obrigatório.
+- **Patterns que entram:** nenhum obrigatório; a change não aplica nenhum por não haver ponto de variação (ver [04-design-patterns.md](04-design-patterns.md)).
+- **Situação:** `relatorios-gerenciais` implementada e arquivada em 2026-10-23 (UC-A10): `GET /api/admin/relatorios/vendas`, `/produtos-mais-vendidos` e `/campanhas`, sem migração nova. A revisão geral dos `Status` de `docs/` 01 a 12 foi feita no fechamento de 2026-10-23, com `./mvnw -o clean verify` em 649 testes; o roteiro da demonstração está em [10-execucao.md](10-execucao.md) e a apresentação da defesa é a única atividade pendente.
 - **Critério de sistema executável:** relatórios retornam valores coerentes com os pedidos da demonstração (incluindo o desconto por campanha); o sistema completo roda do zero seguindo [10-execucao.md](10-execucao.md).
 
 ## 4. Cobertura dos requisitos obrigatórios por etapa
@@ -263,15 +266,22 @@ Ordem em que as changes são executadas (uma depois da outra, cada uma com o sis
 | Ordem | Change | Responsável | Depende de | Situação |
 |:-:|---|---|---|---|
 | 1 | `pedido-ciclo-vida` | Arthur | `fundacao-projeto` (arquivada) | arquivada (2026-10-14); implementada por Arthur, conforme planejado |
-| 2 | `catalogo-estoque` | Lucas (atribuição original); implementada por Arthur | `fundacao-projeto` | implementada; em revisão até a verificação final e o arquivamento |
-| 3 | `carrinho-compras` | Lucas | `catalogo-estoque` | a fazer |
-| 4 | `checkout` | Arthur | `pedido-ciclo-vida`, `catalogo-estoque` (reserva) e `carrinho-compras` | a fazer |
-| 5 | `promocoes-cupons` | Amanda | `carrinho-compras` (pipeline de preço) e `checkout` (descontos registrados no pedido) | a fazer |
-| 6 | `pagamento-idempotencia` | Mateus | `checkout` e `pedido-ciclo-vida`; **remove a simulação de pagamento** (endpoint temporário `pagamento-simulado`) | a fazer |
-| 7 | `entrega-frete` | Mateus | `checkout` e `promocoes-cupons` (frete grátis como promoção) | a fazer |
-| 8 | `eventos-notificacoes-auditoria` | Mateus (eventos e notificações) e Amanda (auditoria) | `pagamento-idempotencia` e os eventos do pedido (`pedido-ciclo-vida`) | a fazer |
-| 9 | `relatorios-gerenciais` | Lucas | `checkout` e `promocoes-cupons` (snapshots dos pedidos e descontos) | a fazer |
+| 2 | `catalogo-estoque` | Lucas (atribuição original); implementada por Arthur | `fundacao-projeto` | arquivada em 2026-10-19 |
+| 3 | `carrinho-compras` | Lucas (atribuição original); implementada por Arthur em sessão assistida | `catalogo-estoque` | concluída e arquivada em 2026-10-23 |
+| 4 | `checkout` | Arthur | `pedido-ciclo-vida`, `catalogo-estoque` (reserva) e `carrinho-compras` | concluída e arquivada em 2026-10-23 |
+| 5 | `promocoes-cupons` | Amanda | `carrinho-compras` (pipeline de preço) e `checkout` (descontos registrados no pedido) | concluída e arquivada em 2026-10-23; implementada por Arthur em sessão assistida (atribuição original: Amanda) |
+| 6 | `pagamento-idempotencia` | Mateus | `checkout` e `pedido-ciclo-vida`; cobrança, confirmação e estorno simulados | concluída e arquivada em 2026-10-23; implementada por Arthur em sessão assistida (atribuição original: Mateus) |
+| 7 | `entrega-frete` | Mateus | `checkout` e `promocoes-cupons` (frete grátis como promoção) | concluída e arquivada em 2026-10-23; implementada por Arthur em sessão assistida (atribuição original: Mateus) |
+| 8 | `eventos-notificacoes-auditoria` | Mateus (eventos e notificações) e Amanda (auditoria) | `pagamento-idempotencia` e os eventos do pedido (`pedido-ciclo-vida`) | concluída e arquivada em 2026-10-23; implementada por Arthur em sessão assistida (atribuições originais: Mateus e Amanda) |
+| 9 | `relatorios-gerenciais` | Lucas (atribuição original); implementada por Arthur em sessão assistida | `checkout` e `promocoes-cupons` (snapshots dos pedidos e descontos) | concluída e arquivada em 2026-10-23 |
 
 Observações:
 - As changes de pessoas diferentes que só dependem da fundação (`catalogo-estoque`, `promocoes-cupons` em domínio puro, `pagamento-idempotencia` e `entrega-frete` em adaptadores) podem andar em paralelo, conforme as ondas de [11-divisao-equipe.md](11-divisao-equipe.md); a ordem acima é a sequência de integração.
 - Cada change integra com as anteriores por contratos e eventos: por exemplo, o `checkout` usa os serviços do pedido, e o estoque, o pagamento e a notificação reagem aos eventos do pedido sem alterá-lo.
+
+
+Entrega E7 implementada: dois provedores simulados, seleção obrigatória no checkout, composição de preço com frete grátis/cupom residual, reconfirmação de tarifa/prazo, snapshot V7 e ciclo pago→preparação→envio→entrega. Change arquivada em 2026-10-23.
+
+Evidência E7 em 2026-10-22: `./mvnw -o clean verify` — BUILD SUCCESS, 584 testes, zero falhas/erros/ignorados; JAR gerado. Os 21 itens de `entrega-frete` foram concluídos e a validação OpenSpec strict passou. São 22 casos novos (9 domínio, 12 integração e 1 migração), mantendo as regressões anteriores com tarifa cotada. Change arquivada em 2026-10-23.
+
+E8, grupo 3: consulta somente leitura de auditoria implementada com filtros por usuário/operação/período inclusivo, ordenação estável, paginação no banco e restrição ADMIN. Notificações e registro transacional já estavam implementados nos grupos 1 e 2. Roteiro HTTP de preço→campanha→compra→pagamento notificado→cancelamento→consulta documentado e exercitado em testes de integração; falha de canal mantém pagamento confirmado. Atribuições originais preservadas. O grupo 4 (validação integrada final) foi concluído e a change foi arquivada em 2026-10-23.

@@ -10,8 +10,8 @@ package br.com.fatec.ecommerce.preco.dominio;
  * um unico metodo com muitas estruturas condicionais. Cada etapa e testavel sozinha e etapa nova (taxa,
  * cashback) nao quebra as existentes.
  *
- * <p>Implementacoes concretas: etapas E3 (subtotal) e E5 (promocoes, cupom, frete, total). Nao ha
- * implementacao na fundacao.
+ * <p>Implementacoes concretas da E3: {@link EtapaSubtotal} e {@link EtapaTotal}, compostas explicitamente
+ * pelo PipelinePreco. Promocoes, cupom e frete entram nas etapas seguintes.
  *
  * <p>Contrato provisorio (onda 0): mudancas via PR revisado pelos consumidores e registradas em docs/03-arquitetura.md.
  *

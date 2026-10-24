@@ -62,7 +62,12 @@ public class ConfiguracaoSeguranca {
                                 "/api/admin/combos/**")
                         .hasAnyRole("ADMIN", "OPERADOR_COMERCIAL")
                         .requestMatchers("/api/admin/estoque/**").hasAnyRole("ADMIN", "ESTOQUE")
-                        // O restante da area administrativa (inclusive usuarios e pagamento simulado) e so do ADMIN.
+                        // Relatorios (UC-A10): campanhas tambem para PROMOCOES; a regra mais especifica vem primeiro.
+                        .requestMatchers("/api/admin/relatorios/campanhas")
+                        .hasAnyRole("ADMIN", "OPERADOR_COMERCIAL", "PROMOCOES")
+                        .requestMatchers("/api/admin/relatorios/**").hasAnyRole("ADMIN", "OPERADOR_COMERCIAL")
+                        // O restante da area administrativa (inclusive usuarios, confirmacao e retentativa de estorno) e so do ADMIN.
+                        .requestMatchers("/api/admin/promocoes/**", "/api/admin/cupons/**").hasAnyRole("ADMIN", "PROMOCOES")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/clientes/me/**", "/api/clientes/me").hasRole("CLIENTE")
                         .anyRequest().authenticated())
