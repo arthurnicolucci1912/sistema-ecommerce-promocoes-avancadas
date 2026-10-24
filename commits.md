@@ -24,6 +24,7 @@ Este documento relaciona cada commit do repositório à change do OpenSpec e aos
 | 14 | `092c2cb` | 2026-10-23 | Arthur | `carrinho-compras`, `checkout`, `promocoes-cupons`, `pagamento-idempotencia`, `entrega-frete`, `eventos-notificacoes-auditoria` e `relatorios-gerenciais`: implementação (código, migrações V4 a V8, testes) e documentação com status final; 649 testes aprovados | Lucas (carrinho, relatórios), Arthur (checkout), Amanda (promoções, auditoria), Mateus (pagamento, frete, eventos) | Arthur |
 | 15 | `41873d5` | 2026-10-23 | Arthur | Planejamento OpenSpec (proposal, specs, design, tasks) e arquivamento das 7 changes acima; specs principais atualizadas | Os mesmos do commit 14 | Arthur |
 | 16 | `3266942` | 2026-10-23 | Arthur | Registro dos commits 14 e 15 neste `commits.md` | Arthur | Arthur |
+| 17 | `41afe84` | 2026-10-23 | Arthur | `docs/10-execucao.md`: ordem do roteiro da demo validada do zero; registro do commit 16 | Arthur | Arthur |
 
 ## Divergências entre o planejado e o realizado
 
