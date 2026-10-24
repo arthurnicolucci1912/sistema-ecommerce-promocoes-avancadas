@@ -6,7 +6,7 @@ Registra cada compra como um pedido que preserva os dados comerciais do momento 
 ## Requirements
 
 ### Requirement: Snapshot comercial do pedido
-Ao ser criado, o pedido SHALL guardar uma cópia dos dados comerciais: para cada item, identificação, nome, descrição da variação, quantidade e preço unitário; os descontos aplicados, com nome e valor; o frete; o subtotal, o total de descontos e o total; e o endereço de entrega. Esses dados MUST NOT mudar depois da criação, mesmo que preços, promoções ou o endereço do cliente mudem.
+Ao ser criado, o pedido SHALL guardar uma cópia dos dados comerciais: para cada item, identificação, nome, descrição da variação, quantidade e preço unitário; os descontos aplicados, com nome e valor; o frete; o subtotal, o total de descontos e o total; o endereço de entrega; e, para novas compras no checkout, código da opção de entrega, fornecedor, modalidade e prazo estimado em dias úteis após aprovação. Esses dados MUST NOT mudar depois da criação, mesmo que preços, promoções, tarifas, prazos ou o endereço do cliente mudem. Pedidos legados sem opção registrada MUST preservar seus valores e expor a opção como ausente, sem fabricar dados de entrega.
 
 #### Scenario: Pedido criado em AGUARDANDO_PAGAMENTO
 - **WHEN** um pedido é criado a partir de um snapshot válido e a reserva é confirmada
@@ -23,6 +23,14 @@ Ao ser criado, o pedido SHALL guardar uma cópia dos dados comerciais: para cada
 #### Scenario: Totais inconsistentes
 - **WHEN** o snapshot informa um total diferente de subtotal menos descontos mais frete
 - **THEN** o pedido não é criado e o sistema rejeita o snapshot
+
+#### Scenario: Cotação alterada depois da compra
+- **WHEN** o fornecedor muda tarifa ou prazo depois que o pedido é criado
+- **THEN** o pedido mantém a modalidade, fornecedor, prazo e frete originais, inclusive após pagamento e envio
+
+#### Scenario: Pedido legado
+- **WHEN** um pedido anterior à integração de frete é consultado
+- **THEN** seus valores e endereço permanecem iguais e a opção de entrega está ausente
 
 ### Requirement: Transições válidas do ciclo de vida
 O pedido SHALL ter os estados `CRIADO`, `AGUARDANDO_PAGAMENTO`, `PAGO`, `PAGAMENTO_RECUSADO`, `EM_PREPARACAO`, `ENVIADO`, `ENTREGUE` e `CANCELADO`. As únicas transições válidas são:
@@ -125,17 +133,6 @@ Cada transição bem-sucedida SHALL emitir um evento do pedido com identificador
 #### Scenario: Transição rejeitada não emite evento
 - **WHEN** uma tentativa de cancelar um pedido `ENTREGUE` é rejeitada
 - **THEN** nenhum evento é emitido
-
-### Requirement: Simulação temporária do resultado do pagamento
-Até a integração real de pagamento, um `ADMIN` SHALL poder simular a aprovação ou a recusa do pagamento de um pedido em `AGUARDANDO_PAGAMENTO`. O pedido vai para `PAGO` ou `PAGAMENTO_RECUSADO`, e o sistema registra como responsável o sistema, com a indicação de simulação. O recurso MUST ser documentado como temporário.
-
-#### Scenario: Aprovação simulada
-- **WHEN** um `ADMIN` simula a aprovação de um pedido em `AGUARDANDO_PAGAMENTO`
-- **THEN** o pedido vai para `PAGO` e o histórico indica simulação
-
-#### Scenario: Recusa simulada
-- **WHEN** um `ADMIN` simula a recusa de um pedido em `AGUARDANDO_PAGAMENTO`
-- **THEN** o pedido vai para `PAGAMENTO_RECUSADO`
 
 ### Requirement: Alterações concorrentes
 Duas transições simultâneas sobre o mesmo pedido MUST NOT ser ambas aplicadas a partir do mesmo estado. A segunda MUST ser rejeitada com 409, sem efeito.
