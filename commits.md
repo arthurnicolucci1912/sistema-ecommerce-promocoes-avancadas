@@ -25,6 +25,7 @@ Este documento relaciona cada commit do repositório à change do OpenSpec e aos
 | 15 | `41873d5` | 2026-10-23 | Arthur | Planejamento OpenSpec (proposal, specs, design, tasks) e arquivamento das 7 changes acima; specs principais atualizadas | Os mesmos do commit 14 | Arthur |
 | 16 | `3266942` | 2026-10-23 | Arthur | Registro dos commits 14 e 15 neste `commits.md` | Arthur | Arthur |
 | 17 | `41afe84` | 2026-10-23 | Arthur | `docs/10-execucao.md`: ordem do roteiro da demo validada do zero; registro do commit 16 | Arthur | Arthur |
+| 18 | `4afb0a2` | 2026-10-24 | Arthur | `docs/08-roadmap.md` seção 6: roteiro de alteração de requisito com as classes reais; registro do commit 17 | Arthur | Arthur |
 
 ## Divergências entre o planejado e o realizado
 

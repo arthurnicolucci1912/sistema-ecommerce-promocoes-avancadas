@@ -48,4 +48,12 @@ class ConfirmacaoCheckoutTests {
         assertThatCode(() -> ConferirConfirmacao.conferir(atual, new PreviaCheckout(atual, List.of())))
                 .doesNotThrowAnyException();
     }
+
+    @Test
+    void valoresInteirosNaoViramNotacaoCientifica() {
+        var desconto = new Desconto("Fixo", "PEDIDO", new BigDecimal("20.00"));
+        assertThat(desconto.valor().toString()).isEqualTo("20");
+        assertThat(linha("A", "100.00").precoUnitario().toString()).isEqualTo("100");
+        assertThat(linha("A", "10.50").precoUnitario().toString()).isEqualTo("10.5");
+    }
 }
