@@ -21,6 +21,8 @@ Este documento relaciona cada commit do repositório à change do OpenSpec e aos
 | 11 | `a5a6f87` | 2026-10-19 | Arthur | `catalogo-estoque`: grupo 6 (carga de demonstração de catálogo, combo e estoque no perfil `dev`; pedido demo com reserva de estoque) | Lucas | Arthur |
 | 12 | `e0a95a5` | 2026-10-19 | Arthur | `catalogo-estoque`: grupo 7 (documentação de catálogo, estoque, Composite e Observer; registro da divisão real em `docs/11` e no board; ajustes de Javadoc e `openspec/config.yaml`) | Lucas | Arthur |
 | 13 | `20ccb0b` | 2026-10-19 | Arthur | `catalogo-estoque`: grupo 8 (verificação final e roteiro manual) e arquivamento da change; specs principais `catalogo` e `estoque`; board atualizado | Lucas | Arthur |
+| 14 | `092c2cb` | 2026-10-23 | Arthur | `carrinho-compras`, `checkout`, `promocoes-cupons`, `pagamento-idempotencia`, `entrega-frete`, `eventos-notificacoes-auditoria` e `relatorios-gerenciais`: implementação (código, migrações V4 a V8, testes) e documentação com status final; 649 testes aprovados | Lucas (carrinho, relatórios), Arthur (checkout), Amanda (promoções, auditoria), Mateus (pagamento, frete, eventos) | Arthur |
+| 15 | `41873d5` | 2026-10-23 | Arthur | Planejamento OpenSpec (proposal, specs, design, tasks) e arquivamento das 7 changes acima; specs principais atualizadas | Os mesmos do commit 14 | Arthur |
 
 ## Divergências entre o planejado e o realizado
 
