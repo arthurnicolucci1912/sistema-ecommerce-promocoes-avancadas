@@ -23,6 +23,7 @@ Este documento relaciona cada commit do repositório à change do OpenSpec e aos
 | 13 | `20ccb0b` | 2026-10-19 | Arthur | `catalogo-estoque`: grupo 8 (verificação final e roteiro manual) e arquivamento da change; specs principais `catalogo` e `estoque`; board atualizado | Lucas | Arthur |
 | 14 | `092c2cb` | 2026-10-23 | Arthur | `carrinho-compras`, `checkout`, `promocoes-cupons`, `pagamento-idempotencia`, `entrega-frete`, `eventos-notificacoes-auditoria` e `relatorios-gerenciais`: implementação (código, migrações V4 a V8, testes) e documentação com status final; 649 testes aprovados | Lucas (carrinho, relatórios), Arthur (checkout), Amanda (promoções, auditoria), Mateus (pagamento, frete, eventos) | Arthur |
 | 15 | `41873d5` | 2026-10-23 | Arthur | Planejamento OpenSpec (proposal, specs, design, tasks) e arquivamento das 7 changes acima; specs principais atualizadas | Os mesmos do commit 14 | Arthur |
+| 16 | `3266942` | 2026-10-23 | Arthur | Registro dos commits 14 e 15 neste `commits.md` | Arthur | Arthur |
 
 ## Divergências entre o planejado e o realizado
 
