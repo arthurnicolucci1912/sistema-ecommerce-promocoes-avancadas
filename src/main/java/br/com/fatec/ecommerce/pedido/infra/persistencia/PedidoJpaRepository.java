@@ -15,6 +15,9 @@ interface PedidoJpaRepository extends JpaRepository<Pedido, Long> {
 
     boolean existsByClienteId(Long clienteId);
 
+    @org.springframework.data.jpa.repository.Query(value = "SELECT EXISTS (SELECT 1 FROM pedido p JOIN pedido_historico h ON h.pedido_id=p.id WHERE p.cliente_id=:clienteId AND h.para='PAGO' AND h.ocorrido_em<=:momento)", nativeQuery = true)
+    boolean existePagamentoAprovadoAte(Long clienteId, Instant momento);
+
     /** Projecoes fechadas: so as colunas do resumo sao lidas, sem as colecoes do agregado. */
     Page<ResumoProjecao> findBy(Pageable pageable);
 

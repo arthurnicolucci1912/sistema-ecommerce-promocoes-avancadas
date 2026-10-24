@@ -64,6 +64,9 @@ public class Pedido {
     @Embedded
     private EnderecoEntrega entrega;
 
+    @Embedded
+    private DadosEntregaSelecionada opcaoEntrega;
+
     @Column(nullable = false, updatable = false, precision = 12, scale = 2)
     private BigDecimal subtotal;
 
@@ -115,6 +118,7 @@ public class Pedido {
     private Pedido(DadosNovoPedido dados, Instant criadoEm, EstadoPedido estadoInicial) {
         this.clienteId = dados.clienteId();
         this.entrega = dados.endereco();
+        this.opcaoEntrega = dados.opcaoEntrega();
         this.subtotal = dados.subtotal().valor();
         this.totalDescontos = dados.totalDescontos().valor();
         this.frete = dados.frete().valor();
@@ -233,6 +237,11 @@ public class Pedido {
                 new DadosDaTransicao(id, clienteId, de, para, momento, responsavel, motivo)));
     }
 
+    @jakarta.persistence.PostLoad
+    private void invalidarEstadoCarregado() {
+        estado = null;
+    }
+
     private EstadoPedido estado() {
         if (estado == null) {
             estado = situacao.estado();
@@ -264,6 +273,16 @@ public class Pedido {
 
     public EnderecoEntrega getEntrega() {
         return entrega;
+    }
+
+    public DadosEntregaSelecionada getOpcaoEntrega() { return opcaoEntrega; }
+
+    /** Parcela liquida derivada para nao gravar um segundo valor redundante de frete. */
+    public Dinheiro getFreteLiquido() {
+        Dinheiro abatimentos = descontos.stream().filter(d -> d.getAlvo() == AlvoDoDesconto.FRETE)
+                .map(DescontoPedido::getValor).reduce(Dinheiro.zero(), Dinheiro::somar);
+        Dinheiro liquido = getFrete().subtrair(abatimentos);
+        return liquido.ehNegativo() ? Dinheiro.zero() : liquido;
     }
 
     public Dinheiro getSubtotal() {

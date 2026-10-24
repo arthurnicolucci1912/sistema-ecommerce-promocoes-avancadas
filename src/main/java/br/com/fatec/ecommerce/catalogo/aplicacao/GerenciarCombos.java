@@ -1,5 +1,6 @@
 package br.com.fatec.ecommerce.catalogo.aplicacao;
 
+import br.com.fatec.ecommerce.compartilhado.aplicacao.PublicarOperacaoAdministrativa;
 import br.com.fatec.ecommerce.catalogo.dominio.Combo;
 import br.com.fatec.ecommerce.catalogo.dominio.ItemVendavel;
 import br.com.fatec.ecommerce.catalogo.dominio.ItemVendavelRepository;
@@ -13,6 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
+ * <p>Observer administrativo: publica snapshots permitidos na transação original; falha da trilha reverte a operação.
+ *
  * Casos de uso de administracao de combos (ADMIN e OPERADOR_COMERCIAL): cadastrar, alterar o preco, substituir os
  * componentes e inativar. Os componentes sao enderecados pelo SKU e tratados so pelo contrato
  * {@link ItemVendavel} (variacao ou outro combo), sem distinguir o tipo.
@@ -26,9 +29,11 @@ import org.springframework.transaction.annotation.Transactional;
 @PreAuthorize("hasAnyRole('ADMIN','OPERADOR_COMERCIAL')")
 public class GerenciarCombos {
 
+    private final PublicarOperacaoAdministrativa auditoria;
     private final ItemVendavelRepository itens;
 
-    public GerenciarCombos(ItemVendavelRepository itens) {
+    public GerenciarCombos(ItemVendavelRepository itens, PublicarOperacaoAdministrativa auditoria) {
+        this.auditoria = auditoria;
         this.itens = itens;
     }
 
@@ -39,25 +44,35 @@ public class GerenciarCombos {
         }
         Combo combo = new Combo(sku, nome, preco);
         adicionar(combo, componentes);
-        return itens.salvar(combo);
+        Combo salvo = itens.salvar(combo);
+        auditoria.publicar("COMBO_CRIADO", "COMBO", salvo.getId(), null, dados(salvo));
+        return salvo;
     }
 
     public Combo alterarPreco(Long comboId, Dinheiro novoPreco) {
         Combo combo = combo(comboId);
+        var antes = dados(combo);
         combo.alterarPreco(novoPreco);
-        return itens.salvar(combo);
+        Combo salvo = itens.salvar(combo);
+        auditoria.publicar("COMBO_ALTERADO", "COMBO", comboId, antes, dados(salvo));
+        return salvo;
     }
 
     /** Troca todos os componentes pela nova lista; um ciclo (combo contido em um de seus componentes) e 409. */
     public Combo substituirComponentes(Long comboId, List<ComponenteDeCombo> componentes) {
-        exigirComponentes(componentes);
         Combo combo = combo(comboId);
-        // Remove e grava antes de readicionar: o Hibernate insere antes de apagar no flush, o que violaria a
-        // unicidade (combo, item) se um componente fosse mantido.
+        var antes = dados(combo);
+        trocarComponentes(combo, componentes);
+        Combo salvo = itens.salvar(combo);
+        auditoria.publicar("COMBO_COMPONENTES_ALTERADOS", "COMBO", comboId, antes, dados(salvo));
+        return salvo;
+    }
+
+    private void trocarComponentes(Combo combo, List<ComponenteDeCombo> componentes) {
+        exigirComponentes(componentes);
         combo.removerItens();
         itens.salvar(combo);
         adicionar(combo, componentes);
-        return itens.salvar(combo);
     }
 
     /**
@@ -68,19 +83,30 @@ public class GerenciarCombos {
         if (novoPreco == null && componentes == null) {
             throw new DadoInvalidoException("Informe o preço e/ou os componentes do combo.");
         }
-        Combo combo = componentes == null ? combo(comboId) : substituirComponentes(comboId, componentes);
+        Combo combo = combo(comboId);
+        var antes = dados(combo);
+        if (componentes != null) trocarComponentes(combo, componentes);
         if (novoPreco != null) {
             combo.alterarPreco(novoPreco);
         }
-        return itens.salvar(combo);
+        Combo salvo = itens.salvar(combo);
+        auditoria.publicar("COMBO_ALTERADO", "COMBO", comboId, antes, dados(salvo));
+        return salvo;
     }
 
     public void inativar(Long comboId) {
         Combo combo = combo(comboId);
+        var antes = dados(combo);
         combo.inativar();
         itens.salvar(combo);
+        auditoria.publicar("COMBO_INATIVADO", "COMBO", comboId, antes, dados(combo));
     }
 
+    private java.util.Map<String,Object> dados(Combo c) {
+        return java.util.Map.of("sku", c.getSku(), "nome", c.getNome(), "preco", c.preco().valor(),
+                "ativo", c.isAtivo(), "componentes", c.getItens().stream().map(i ->
+                    java.util.Map.of("sku", i.getItem().getSku(), "quantidade", i.getQuantidade())).toList());
+    }
     private void adicionar(Combo combo, List<ComponenteDeCombo> componentes) {
         for (ComponenteDeCombo componente : componentes) {
             if (componente == null || componente.sku() == null || componente.sku().isBlank()) {

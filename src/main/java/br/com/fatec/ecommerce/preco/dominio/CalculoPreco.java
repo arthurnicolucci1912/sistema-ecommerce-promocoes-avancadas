@@ -8,7 +8,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Estado mutavel do calculo de preco, passado de etapa em etapa pelo pipeline ({@link EtapaPreco}).
+ * Chain of Responsibility: contexto mutavel do calculo, passado de handler em handler ({@link EtapaPreco}).
  * No fim, acumula o detalhamento (subtotal, descontos, frete e total) que o cliente enxerga.
  *
  * <p>Contrato provisorio (onda 0): mudancas via PR revisado pelos consumidores e registradas em docs/03-arquitetura.md.
@@ -20,6 +20,10 @@ public class CalculoPreco {
     private final List<DescontoAplicado> descontos = new ArrayList<>();
     private Dinheiro frete = Dinheiro.zero();
     private Dinheiro total = Dinheiro.zero();
+    private br.com.fatec.ecommerce.promocao.dominio.SituacaoCupom cupom;
+
+    public br.com.fatec.ecommerce.promocao.dominio.SituacaoCupom cupom() { return cupom; }
+    public void definirCupom(br.com.fatec.ecommerce.promocao.dominio.SituacaoCupom cupom) { this.cupom = cupom; }
 
     public CalculoPreco(ContextoPreco contexto) {
         this.contexto = contexto;
@@ -51,6 +55,13 @@ public class CalculoPreco {
 
     public void definirFrete(Dinheiro frete) {
         this.frete = frete;
+    }
+
+    public Dinheiro freteLiquido() {
+        Dinheiro abatimentos = descontos.stream().filter(d -> d.alvo() == br.com.fatec.ecommerce.promocao.dominio.AlvoDesconto.FRETE)
+                .map(d -> d.valor()).reduce(Dinheiro.zero(), Dinheiro::somar);
+        Dinheiro liquido = frete.subtrair(abatimentos);
+        return liquido.ehNegativo() ? Dinheiro.zero() : liquido;
     }
 
     public Dinheiro total() {

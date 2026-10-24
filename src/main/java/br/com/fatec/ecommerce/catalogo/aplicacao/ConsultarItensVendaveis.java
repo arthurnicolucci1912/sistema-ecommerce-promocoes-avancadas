@@ -51,16 +51,28 @@ public class ConsultarItensVendaveis {
      * existir.
      */
     public List<ItemVendavelInfo> porSkus(Collection<String> skus) {
-        Set<String> pedidos = new LinkedHashSet<>();
-        skus.forEach(sku -> pedidos.add(sku == null ? "" : sku.trim()));
-        Map<String, ItemVendavel> encontrados = new LinkedHashMap<>();
-        itens.buscarPorSkus(pedidos).forEach(item -> encontrados.put(item.getSku(), item));
-        List<String> ausentes = pedidos.stream().filter(sku -> !encontrados.containsKey(sku)).toList();
+        List<ItemVendavelInfo> encontrados = existentesPorSkus(skus);
+        Set<String> presentes = new LinkedHashSet<>();
+        encontrados.forEach(item -> presentes.add(item.sku()));
+        List<String> ausentes = skus.stream().map(sku -> sku == null ? "" : sku.trim())
+                .filter(sku -> !presentes.contains(sku)).distinct().toList();
         if (!ausentes.isEmpty()) {
             throw new RecursoNaoEncontradoException("Item não encontrado para o SKU: " + String.join(", ", ausentes));
         }
+        return encontrados;
+    }
+
+    /** Consulta tolerante para carrinhos antigos; itens que sairam do catalogo ficam de fora. */
+    public List<ItemVendavelInfo> existentesPorSkus(Collection<String> skus) {
+        Set<String> pedidos = new LinkedHashSet<>();
+        skus.forEach(sku -> pedidos.add(sku == null ? "" : sku.trim()));
+        if (pedidos.isEmpty()) {
+            return List.of();
+        }
+        Map<String, ItemVendavel> encontrados = new LinkedHashMap<>();
+        itens.buscarPorSkus(pedidos).forEach(item -> encontrados.put(item.getSku(), item));
         ArvoreDeCategorias arvore = new ArvoreDeCategorias(categorias.listarTodas());
-        return pedidos.stream().map(sku -> visao(encontrados.get(sku), arvore)).toList();
+        return pedidos.stream().filter(encontrados::containsKey).map(sku -> visao(encontrados.get(sku), arvore)).toList();
     }
 
     private static ItemVendavelInfo visao(ItemVendavel item, ArvoreDeCategorias arvore) {
@@ -69,6 +81,6 @@ public class ConsultarItensVendaveis {
             arvore.categoriaEAncestrais(diretaId).stream().map(Categoria::getId).forEach(categoriaIds::add);
         }
         return new ItemVendavelInfo(item.getId(), item.getSku(), item.getNome(), item.preco(), item.isAtivo(),
-                item.estaDisponivelParaVenda(), categoriaIds, item.componentesDeEstoque(1));
+                item.estaDisponivelParaVenda(), categoriaIds, item.componentesDeEstoque(1), item.descricaoVariacao());
     }
 }

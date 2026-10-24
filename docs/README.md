@@ -2,7 +2,7 @@
 
 > **Objetivo:** apresentar a visão geral do sistema, servir de índice para a documentação e relacionar cada documento às etapas de produção (roadmap).
 > **Etapas do roadmap relacionadas:** todas (1 a 9).
-> **Status:** rascunho
+> **Status:** implementado (E1–E9): documentação atualizada com o projeto concluído em 2026-10-23.
 
 ## Visão geral
 
@@ -48,7 +48,7 @@ O desafio central não é o CRUD de uma loja virtual, e sim uma arquitetura que 
 | 09 | [Testes](09-testes.md) | Cenários de teste obrigatórios e a etapa que cobre cada um |
 | 10 | [Execução](10-execucao.md) | Como executar o sistema: pré-requisitos, Docker Compose, perfil `dev`, Swagger, usuários de demonstração e testes (`implementado` na E1) |
 | 11 | [Divisão da equipe](11-divisao-equipe.md) | Responsabilidades por integrante, ordem de trabalho e fluxo de revisão |
-| 12 | [Board de tarefas](12-board.md) | Andamento das changes por integrante (a fazer, em andamento, em revisão, feito) |
+| 12 | [Board de tarefas](12-board.md) | Andamento das changes por integrante (todas as changes na coluna Feito, arquivadas até 2026-10-23) |
 
 Ordem sugerida de leitura: 01, 02, 03, 04, 05, 06, 07. Os documentos 08 a 12 são de planejamento e operação.
 

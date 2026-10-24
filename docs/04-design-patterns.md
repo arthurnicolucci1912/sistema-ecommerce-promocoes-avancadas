@@ -4,7 +4,7 @@
 >
 > **Etapas do roadmap relacionadas:** 2 (catálogo e estoque, combos), 3 (carrinho, pipeline de preço), 4 (checkout e pedido, State, Facade), 5 (promoções e cupons: Strategy, Composite de condições, Factory Method), 6 (pagamento e idempotência: Adapter), 7 (entrega e frete), 8 (eventos, notificações e auditoria: Observer). Ver [08-roadmap.md](08-roadmap.md).
 >
-> **Status:** parcialmente `implementado`. State (3.4) está **implementado** na E4 (change `pedido-ciclo-vida`). O Composite de combos (3.8) está **implementado** na E2 (change `catalogo-estoque`). O Observer (3.6) tem implementados o lado publicador do pedido (E4), o publicador do catálogo e os ouvintes do estoque (E2); os ouvintes de pagamento, notificação e auditoria chegam nas etapas 6 e 8. Na E1 foram criados apenas os **contratos** (interfaces e `record`s) dos itens 3.1, 3.2, 3.3, 3.5 e 3.6, com status `contrato definido (E1)`; os patterns 3.1, 3.2, 3.3 e 3.5 não têm implementação ainda. Os nomes de classes concretas dos demais itens são preliminares e serão refinados em cada change de implementação. Um pattern que, na implementação, não se sustentar por um requisito concreto será removido deste documento (o enunciado penaliza padrões introduzidos artificialmente).
+> **Status:** implementado (E1–E9): os patterns State, Composite, Observer, Strategy, Specification, Chain of Responsibility, Factory Method, Adapter e Facade têm implementação nas changes arquivadas até 2026-10-23, com o inventário efetivo ao fim deste documento. Um pattern que, na implementação, não se sustentasse por um requisito concreto seria removido (o enunciado penaliza padrões introduzidos artificialmente).
 
 Documentos relacionados: [01-requisitos.md](01-requisitos.md), [02-modelo-dominio.md](02-modelo-dominio.md), [03-arquitetura.md](03-arquitetura.md), [05-regras-negocio.md](05-regras-negocio.md), [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md).
 
@@ -28,7 +28,7 @@ São 9 pontos de aplicação, que usam **8 patterns distintos** (o Composite apa
 | 8 | Item vendável: variação simples vs. combo/kit | Composite | Estrutural | Carrinho de compras; Catálogo de produtos |
 | 9 | Orquestração do checkout | Facade | Estrutural | Checkout |
 
-Situação dos pontos de aplicação: o #4 (State) está `implementado` (E4); o #6 (Observer) tem `implementados` o publicador e os eventos do pedido (E4), o publicador do catálogo (`VariacaoCadastrada`) e os ouvintes do estoque (E2), com os demais ouvintes nas etapas seguintes; o #8 (Composite de combos) está `implementado` (E2); os demais estão como contrato (E1) ou `proposto`. As categorias do catálogo são uma árvore simples e **não** são um ponto de aplicação de pattern (ver 3.8).
+Situação dos pontos de aplicação: o #4 (State) está `implementado` (E4); o #6 (Observer) tem `implementados` o publicador e os eventos do pedido (E4), o publicador do catálogo (`VariacaoCadastrada`) e os ouvintes do estoque (E2), com cupom na E5, pagamento na E6 e notificação no grupo 1 da E8; auditoria implementada no grupo 2 da E8; o #8 (Composite de combos) está `implementado` (E2); os demais estão como contrato (E1) ou `proposto`. As categorias do catálogo são uma árvore simples e **não** são um ponto de aplicação de pattern (ver 3.8).
 
 Contagem por categoria (patterns distintos):
 
@@ -54,7 +54,7 @@ O mínimo de 6 patterns, de mais de uma categoria, com pelo menos 2 comportament
 **Por que este pattern.** O comportamento que varia (como calcular o benefício) é encapsulado atrás de um contrato único, e o motor de promoções trata todas as promoções de forma uniforme. A mesma ideia vale para a política de conflito (D4 do design): trocá-la não mexe no motor.
 - *Alternativa descartada:* `switch` por tipo dentro de um `PromocaoService`; ele viola o pedido do enunciado de não transformar o código "em uma grande sequência de estruturas condicionais". Herança JPA com uma subclasse por tipo e lógica na entidade também foi descartada para manter a entidade de configuração simples (ver 3.7).
 
-**Classes participantes (preliminares).**
+**Classes participantes (pagamento implementado na E6).**
 
 | Papel | Classe |
 |---|---|
@@ -103,7 +103,7 @@ classDiagram
 
 `ContextoPreco` e `ItemPreco` ficam em `promocao.dominio` para evitar o ciclo `preco` ↔ `promocao` (ver [03-arquitetura.md](03-arquitetura.md), seção 5). Cada contrato tem Javadoc com propósito, pattern e papel.
 
-**Status:** contrato definido (E1), implementação na E5 (`Promocao`, `PoliticaConflito`) e na E7 (`ProvedorFrete`).
+**Status:** contratos E1; `Promocao` e `PoliticaConflito` implementadas na E5 (inventário efetivo ao fim deste documento). `ProvedorFrete` permanece para E7.
 
 
 ---
@@ -118,7 +118,7 @@ classDiagram
 - *Alternativa descartada:* campos booleanos e opcionais na entidade `Promocao` (`apenasPrimeiraCompra`, `valorMinimo`, `categoriaId`...) com um método gigante de verificação. Não suporta OU/NÃO nem combinações arbitrárias.
 - *Observação:* Specification não é um padrão GoF; é o Composite aplicado a regras e conta como uma única ocorrência de Composite.
 
-**Classes participantes (preliminares).**
+**Classes participantes (pagamento implementado na E6).**
 
 | Papel | Classe |
 |---|---|
@@ -131,7 +131,7 @@ classDiagram
 
 **Contrato já criado na E1.** `CondicaoElegibilidade` (`promocao.dominio`), com `boolean avaliar(ContextoPreco contexto)`, é o papel Component do Composite. Não há folhas (`ValorMinimo`, `PrimeiraCompra` etc.) nem compostos (`CondicaoE`, `CondicaoOu`, `CondicaoNao`) implementados.
 
-**Status:** contrato definido (E1), implementação na E5.
+**Status:** contrato E1 e condições/composições implementadas na E5; ver inventário efetivo ao fim deste documento.
 
 
 ---
@@ -146,14 +146,14 @@ classDiagram
 - *Alternativa descartada:* método único com ifs; também Decorator sobre o preço, pois o resultado não é um número único e sim um detalhamento por etapa.
 - *Ressalva honesta:* é a variante "pipeline" do padrão: nenhuma etapa interrompe a cadeia, exceto por erro. Mantém a ideia central (elos desacoplados com sucessor), mas não é a versão em que um único elo trata a requisição.
 
-**Classes participantes (preliminares).**
+**Classes participantes (E3 efetiva; etapas futuras assinaladas).**
 
 | Papel | Classe |
 |---|---|
-| Handler | `EtapaPreco` (método `processar(ContextoPreco)`) |
-| Handlers concretos | `EtapaSubtotal`, `EtapaPromocoes` (usa o `MotorDePromocoes`), `EtapaCupom`, `EtapaFrete`, `EtapaTotal` |
+| Handler | `EtapaPreco` (método `processar(CalculoPreco)`) |
+| Handlers concretos | `EtapaSubtotal` e `EtapaTotal` (E3); `EtapaPromocoes`, `EtapaCupom` e `EtapaFrete` (futuras) |
 | Contexto compartilhado | `CalculoPreco` (subtotal, descontos, frete e total detalhados) |
-| Montagem da cadeia | `CalculadoraDePreco` (recebe a lista ordenada de etapas por injeção do Spring) |
+| Montagem da cadeia | `PipelinePreco` (recebe lista ordenada; `ConfiguracaoPreco` faz a composição Spring) |
 
 ```mermaid
 flowchart LR
@@ -167,9 +167,9 @@ flowchart LR
 
 **O que ficou mais fácil de modificar.** Nova etapa (taxa de embalagem, cashback) = nova classe inserida na posição desejada da lista. Mudar a ordem não exige reescrever lógica.
 
-**Contratos já criados na E1.** `EtapaPreco` (`preco.dominio`), com `void processar(CalculoPreco calculo)`, é o papel Handler. `CalculoPreco` (`preco.dominio`) é o contexto compartilhado e mutável (contexto de entrada, subtotal, descontos aplicados, frete e total). Não há etapas concretas nem a montagem da cadeia (`CalculadoraDePreco`).
+**Contratos já criados na E1.** `EtapaPreco` (`preco.dominio`), com `void processar(CalculoPreco calculo)`, é o papel Handler. `CalculoPreco` (`preco.dominio`) é o contexto compartilhado e mutável (contexto de entrada, subtotal, descontos aplicados, frete e total). Na E3, `EtapaSubtotal` e `EtapaTotal` são os handlers concretos, `PipelinePreco` é o coordenador e `ConfiguracaoPreco` compõe explicitamente a ordem. Cada cálculo recebe um contexto mutável novo. `PipelinePrecoTests` demonstra a inserção de uma etapa de frete de teste sem alterar os handlers existentes.
 
-**Status:** contrato definido (E1), implementação na E3 (primeiras etapas) e na E5 (promoções e cupom).
+**Status:** implementado na E3 para subtotal, total e composição extensível. Promoções e cupom entram na E5. A alternativa de um método com condicionais foi rejeitada por concentrar mudanças futuras; registrar um handler e sua ordem não altera os demais.
 
 
 ---
@@ -265,20 +265,20 @@ classDiagram
 - *Alternativa descartada:* `if (forma == CARTAO) ... else if (forma == PIX)` no serviço de pagamento, que acopla o domínio às interfaces externas.
 - *Extensão:* o mesmo desenho serve para transportadoras externas (adaptar o serviço da transportadora ao contrato de frete) e para os canais de notificação simulados.
 
-**Classes participantes (preliminares).**
+**Classes participantes (pagamento implementado na E6).**
 
 | Papel | Classe |
 |---|---|
 | Target (contrato do domínio) | `GatewayPagamento` (`cobrar`, `estornar`) e `ResultadoCobranca` |
-| Adapters | `CartaoGatewayAdapter`, `PixGatewayAdapter`, `BoletoGatewayAdapter` |
-| Adaptees (serviços simulados, interfaces distintas) | `CartaoApiSimulada`, `PixApiSimulada`, `BoletoApiSimulada` |
-| Seleção | o gateway que responde `suporta(FormaPagamento)` (lista de gateways injetada pelo Spring) |
+| Adapters | `AdaptadorCartaoSimulado`, `AdaptadorPixSimulado`, `AdaptadorBoletoSimulado` |
+| Adaptees (serviços simulados, interfaces distintas) | `CartaoFicticio`, `PixFicticio`, `BoletoFicticio` |
+| Seleção | `RegistroGateways`: suporte por forma, seleção configurada e identidade estável do fornecedor |
 
 **O que ficou mais fácil de modificar.** Novo meio de pagamento ou troca de fornecedor = novo adapter registrado como bean. Checkout, Pedido e a regra de idempotência não mudam.
 
-**Contratos já criados na E1.** Em `pagamento.dominio`: `GatewayPagamento` (Target do Adapter: `suporta`, `cobrar`, `estornar`) com `FormaPagamento`, `SolicitacaoCobranca`, `ResultadoCobranca` (com o enum aninhado `Situacao`: `APROVADO`, `RECUSADO`, `PENDENTE`), `SolicitacaoEstorno` e `ResultadoEstorno`. Em `entrega.dominio` (extensão para transportadoras): `ProvedorFrete` com `ContextoFrete` e `CotacaoFrete`. Em `notificacao.dominio` (extensão para canais): `CanalNotificacao` com `Notificacao`. Nenhum adapter nem adaptee simulado existe ainda.
+**Contratos já criados na E1.** Em `pagamento.dominio`: `GatewayPagamento` (Target do Adapter: `suporta`, `cobrar`, `estornar`) com `FormaPagamento`, `SolicitacaoCobranca`, `ResultadoCobranca` (com o enum aninhado `Situacao`: `APROVADO`, `RECUSADO`, `PENDENTE`), `SolicitacaoEstorno` e `ResultadoEstorno`. Em `entrega.dominio` (extensão para transportadoras): `ProvedorFrete` com `ContextoFrete` e `CotacaoFrete`. Em `notificacao.dominio` (extensão para canais): `CanalNotificacao` com `Notificacao`. Os adapters/adaptees de pagamento foram implementados na E6 e os de frete na E7; canal simulado implementado no grupo 1 da E8.
 
-**Status:** contrato definido (E1), implementação na E6 (pagamento), E7 (frete) e E8 (canais de notificação).
+**Status:** pagamento implementado na E6 e frete na E7; canal simulado implementado no grupo 1 da E8.
 
 
 ---
@@ -287,23 +287,24 @@ classDiagram
 
 **Requisito de origem.** Seção *Eventos do sistema*: "o sistema deverá evitar que uma única classe conheça diretamente todos os componentes interessados" quando um pagamento é confirmado. Seção *Notificações*: novos canais sem "forte dependência entre o módulo de pedidos e a tecnologia de notificação".
 
-**Problema.** Ao confirmar um pagamento, é preciso dar baixa no estoque, notificar o cliente, registrar auditoria e alimentar relatórios. Um `PedidoService` que chama cada um deles diretamente conhece todos e muda a cada interessado novo.
+**Problema.** Ao confirmar um pagamento, é preciso dar baixa no estoque e notificar o cliente. Operações administrativas também precisam de trilha atômica. Um `PedidoService` que chama cada um deles diretamente conhece todos e muda a cada interessado novo.
 
-**Por que este pattern.** Quem confirma o pagamento publica um evento de domínio (`PagamentoConfirmado`) e não sabe quem reage. Cada interessado é um observador independente. No Spring, a infraestrutura é o `ApplicationEventPublisher` com `@EventListener` (reações que devem estar na mesma transação, como a baixa de estoque) e `@TransactionalEventListener` após o commit (notificação, auditoria).
+**Por que este pattern.** Quem confirma o pagamento publica o evento de domínio `PedidoPago` e não sabe quem reage. Cada interessado é um observador independente. Operações administrativas publicam `OperacaoAdministrativa` para a trilha. No Spring, a infraestrutura é o `ApplicationEventPublisher` com `@EventListener` (reações que devem estar na mesma transação, como a baixa de estoque) e `@TransactionalEventListener` após o commit para notificação. A auditoria administrativa da E8 é síncrona na transação da operação.
 - *Alternativa descartada:* chamadas diretas a cada componente a partir do serviço de pedido; broker de mensagens externo (excesso para o porte do trabalho).
 
-**Classes participantes.** O lado publicador do pedido (E4), o publicador do catálogo e os ouvintes do estoque (E2) estão `implementado`; os ouvintes de pagamento, notificação e auditoria são das etapas seguintes.
+**Classes participantes.** Publicadores de pedido/catálogo, ouvintes de estoque, cupom e pagamento estão implementados nas etapas anteriores. A E8 implementou o ouvinte de notificações e o canal simulado, o registro de auditoria (grupo 2) e a consulta (grupo 3).
 
 | Papel | Classe |
 |---|---|
 | Evento (contrato) | `EventoDominio` (`compartilhado.dominio`) |
 | Eventos do pedido (`implementado`, E4; `pedido.dominio.evento`) | `PedidoCriado`, `PedidoPago`, `PedidoPagamentoRecusado`, `PedidoEmPreparacao`, `PedidoEnviado`, `PedidoEntregue`, `PedidoCancelado`. Todos são `record`s que carregam `pedidoId`, `clienteId`, `de`, `para` e `ocorridoEm`; o `PedidoCancelado` carrega também `responsavel` e `motivo`. |
 | Evento do catálogo (`implementado`, E2; `catalogo.dominio.evento`) | `VariacaoCadastrada` (`record` com `variacaoId`, `sku` e `ocorridoEm`), publicado a cada variação cadastrada |
-| Eventos do pagamento (etapa 6, preliminares) | `PagamentoConfirmado`, `PagamentoRecusado` (módulo `pagamento`; distintos de `PedidoPago` e `PedidoPagamentoRecusado`, que são o aviso do pedido sobre a própria mudança de estado) |
+| Resultado do pagamento (implementado E6) | Reutiliza `PedidoPago` e `PedidoPagamentoRecusado`, sem duplicar eventos de aprovação/recusa |
 | Subject/publicador | `ConfirmarReservaDoPedido` e `TransicionarPedido` (`pedido.aplicacao`), que publicam pelo `PublicadorEventos` depois de salvar o pedido; `CadastrarVariacao` (`catalogo.aplicacao`), que publica os eventos que o `Produto` acumulou (`consumirEventos()`) depois de salvar |
 | Observers do estoque (`implementado`, E2; `estoque.aplicacao`) | `OuvinteDePedidosDoEstoque` (ouve `PedidoPago`, `PedidoPagamentoRecusado` e `PedidoCancelado`) e `OuvinteDeCatalogoDoEstoque` (ouve `VariacaoCadastrada`) |
-| Observers futuros | `NotificacaoListener`, `AuditoriaListener` (etapas 6 e 8; nenhum existe ainda) |
-| Canais de notificação (contrato) | `CanalNotificacao`, com `EmailSimulado` e `SmsSimulado` (etapa 8) |
+| Observer de comunicação (implementado E8, grupo 1) | `OuvinteDePedidosDaNotificacao`, após commit dos cinco acontecimentos relevantes |
+| Observer de auditoria (implementado E8, grupo 2) | `OuvinteDeOperacoesAdministrativas` (E8, grupo 2) |
+| Canais de notificação (implementado E8, grupo 1) | `CanalNotificacao`, `CanalNotificacaoSimulado` e `EnviarNotificacoes`; resolução por `DestinatariosNotificacaoJdbc` |
 
 **Como o pedido anuncia os eventos.** Cada estado decide o que anuncia ao ser alcançado, por `EstadoPedido.eventoDeChegada(DadosDaTransicao)`: `AguardandoPagamento` anuncia `PedidoCriado` (efeito de T1: o pedido só é anunciado depois da reserva), `Pago` anuncia `PedidoPago`, `PagamentoRecusado` anuncia `PedidoPagamentoRecusado`, `EmPreparacao` anuncia `PedidoEmPreparacao`, `Enviado` anuncia `PedidoEnviado`, `Entregue` anuncia `PedidoEntregue` e `Cancelado` anuncia `PedidoCancelado`. `Criado` (estado inicial) não anuncia nada. O `Pedido` acumula os eventos de cada transição aplicada (`consumirEventos()`), e o serviço de aplicação os publica depois de salvar, na mesma transação; uma transição rejeitada não salva nem publica. O campo `de` permite ao ouvinte decidir o efeito (o estoque, implementado na E2, libera a reserva se o cancelamento vem de `AGUARDANDO_PAGAMENTO` e repõe a baixa se vem de `PAGO` ou `EM_PREPARACAO`; o pagamento estornará na etapa 6).
 
@@ -319,9 +320,9 @@ classDiagram
 
 **O que ficou mais fácil de modificar.** Novo interessado (por exemplo, enviar o pedido a um sistema de fidelidade) = novo listener. Novo efeito de estoque (por exemplo, reagir a `PedidoEnviado`) = novo método ouvinte em `OuvinteDePedidosDoEstoque` ou uma nova entrada no mapa de origens, sem tocar o `pedido` nem o `catalogo`. Novo canal de comunicação (WhatsApp) = nova implementação de `CanalNotificacao`. O módulo de pedidos não importa nenhuma tecnologia de notificação nem o estoque.
 
-**Contratos já criados na E1.** `EventoDominio` (`compartilhado.dominio`, com `Instant ocorridoEm()`) e `PublicadorEventos` (`compartilhado.dominio`, com `void publicar(EventoDominio evento)`). O adaptador `PublicadorEventosSpring` (`compartilhado.infra`) delega ao `ApplicationEventPublisher`; é a **única implementação concreta** de contrato existente na E1, e há um teste de integração em que um evento publicado chega a um `@EventListener` (`PublicadorEventosSpringTests`). Os eventos do pedido passaram a existir na E4 (ver acima); `VariacaoCadastrada` e os ouvintes do estoque, na E2; os eventos de pagamento (`PagamentoConfirmado`, `PagamentoRecusado`), os listeners de notificação e auditoria e os canais ainda não existem. `CanalNotificacao` e `Notificacao` (`notificacao.dominio`) estão descritos em 3.5.
+**Contratos já criados na E1.** `EventoDominio` (`compartilhado.dominio`, com `Instant ocorridoEm()`) e `PublicadorEventos` (`compartilhado.dominio`, com `void publicar(EventoDominio evento)`). O adaptador `PublicadorEventosSpring` (`compartilhado.infra`) delega ao `ApplicationEventPublisher`; é a **única implementação concreta** de contrato existente na E1, e há um teste de integração em que um evento publicado chega a um `@EventListener` (`PublicadorEventosSpringTests`). Os eventos do pedido passaram a existir na E4 (ver acima); `VariacaoCadastrada` e os ouvintes do estoque, na E2; a E6 reutiliza `PedidoPago`/`PedidoPagamentoRecusado` e adiciona ouvinte de estorno. O listener de notificação e o canal simulado estão implementados no grupo 1 da E8; registro de auditoria implementado no grupo 2; consulta implementada no grupo 3. `CanalNotificacao` e `Notificacao` (`notificacao.dominio`) estão descritos em 3.5.
 
-**Status:** publicador e eventos do pedido implementados (E4, change `pedido-ciclo-vida`); publicador do catálogo (`VariacaoCadastrada`) e ouvintes do estoque implementados (E2, change `catalogo-estoque`); ouvintes de pagamento e notificação nas etapas seguintes (e auditoria na E8). Eventos de pagamento nas E6 e E8.
+**Status:** publicador e eventos do pedido implementados (E4, change `pedido-ciclo-vida`); publicador do catálogo (`VariacaoCadastrada`) e ouvintes do estoque implementados (E2, change `catalogo-estoque`); ouvinte de pagamento implementado na E6; notificação e canal simulado implementados na E8 (grupo 1); registro de auditoria implementado no grupo 2; consulta implementada no grupo 3.
 
 
 ---
@@ -335,7 +336,7 @@ classDiagram
 **Por que este pattern.** Para cada tipo existe uma fábrica que sabe montar a promoção a partir da configuração, e um registro (mapa tipo para fábrica, preenchido por injeção das fábricas existentes) escolhe a fábrica certa. Quem carrega promoções do banco não conhece as classes concretas.
 - *Alternativa descartada:* Abstract Factory, pois não há famílias de objetos relacionados; um `switch` ou `if` por tipo no serviço, pela mesma razão do 3.1.
 
-**Classes participantes (preliminares).**
+**Classes participantes (preliminares; implementação E5 detalhada abaixo).**
 
 | Papel | Classe |
 |---|---|
@@ -347,7 +348,7 @@ classDiagram
 
 **O que ficou mais fácil de modificar.** O custo de uma nova promoção é "nova classe `Promocao` + nova fábrica registrada". O registro e o carregamento do banco não mudam. É isso que sustenta a promessa de "quinta ou sexta promoção com impacto reduzido".
 
-**Status:** proposto.
+**Status:** implementado na E5; participantes reais no inventário efetivo ao fim deste documento.
 
 ---
 
@@ -433,17 +434,17 @@ classDiagram
 - *Alternativa descartada:* orquestrar no controller, que mistura HTTP e processo de negócio.
 - *Ressalva honesta:* é o pattern com maior risco de parecer artificial. Se na implementação a fachada virar um repasse sem coordenação real, será removida e o caso de uso ficará como serviço de aplicação comum.
 
-**Classes participantes (preliminares).**
+**Classes participantes (implementadas na E4b).**
 
 | Papel | Classe |
 |---|---|
-| Facade | `CheckoutFacade` |
-| Subsistemas | `RevalidadorDeCarrinho`, `CalculadoraDePreco` (3.3), `ReservarEstoque` (reserva, `estoque.aplicacao`, E2 `implementado`), `PedidoService`, `PagamentoService` |
-| Cliente | `CheckoutController` |
+| Facade | `checkout.aplicacao.CheckoutFacade` |
+| Subsistemas | `RevalidarCheckout`, `preco.aplicacao.PipelinePreco`, `pedido.aplicacao.CriarPedido`, `estoque.aplicacao.ReservarEstoque`, `pedido.aplicacao.ConfirmarReservaDoPedido`, `carrinho.dominio.CarrinhoRepository` |
+| Cliente | `checkout.web.CheckoutController` |
 
-**O que ficou mais fácil de modificar.** Inserir um passo (por exemplo, validação antifraude simulada) altera a fachada em um ponto; o controller e os módulos permanecem como estão.
+**O que ficou mais fácil de modificar.** A sequência de revalidação, comparação com a confirmação, criação, reserva, transição do pedido e limpeza tem um único ponto de coordenação e uma transação. O controller não conhece esses passos; pedido continua sem depender do estoque. `RevalidarCheckout` consome o Composite do catálogo e a cadeia de preço existentes. A API expõe prévia e conclusão; pagamento é iniciado separadamente pelo comprador na E6; entrega é cotada e confirmada na E7.
 
-**Status:** proposto.
+**Status:** `implementado` na E4b. `RevalidarCheckoutTests` demonstra um novo tipo vendável e um novo handler de teste sem alterar a revalidação. `CheckoutIntegracaoTests` demonstra compra com variação/kit, rollback depois da reserva e da limpeza persistida, duas conclusões da mesma versão, concorrência pela última unidade, disputa com alteração do carrinho e novo ouvinte de PedidoCriado sem mudar o pedido. Comparação de confirmação, validação de DTOs e persistência não receberam patterns próprios.
 
 ---
 
@@ -467,10 +468,70 @@ O enunciado diz que a equipe deverá "explicar quais componentes seriam criados 
 | Nova regra de conflito (ex.: sempre a maior economia) | Nova `PoliticaConflito` | Escolha da política na configuração | Todas as promoções | Strategy |
 | Nova forma de pagamento ou novo fornecedor | Novo `GatewayAdapter` (mais o cliente simulado/externo) registrado como bean; novo valor em `FormaPagamento` se for um meio novo | Nenhuma regra central | Checkout, `Pedido`, idempotência, estados | Adapter |
 | Nova transportadora ou modalidade de entrega | Nova implementação do contrato de frete (e adapter, se houver API externa) e registro | Nenhuma | Frete grátis (continua sendo promoção), pipeline de preço | Strategy / Adapter |
-| Novo canal de notificação (ex.: WhatsApp) | Nova implementação de `CanalNotificacao` | Configuração de canais | `NotificacaoListener`, módulo de pedidos, eventos | Observer |
+| Novo canal de notificação (ex.: WhatsApp) | Nova implementação de `CanalNotificacao` | Configuração de canais | `OuvinteDePedidosDaNotificacao`, módulo de pedidos, eventos | Observer |
 | Novo interessado em um evento (ex.: programa de fidelidade) | Novo listener | Nenhuma | Quem publica o evento | Observer |
 | Nova etapa de preço (ex.: taxa de embalagem) | Nova `EtapaPreco` | Ordem da lista de etapas | Demais etapas | Chain of Responsibility |
 | Novo estado do pedido | Nova classe de estado | Transições que chegam ao novo estado; [06-ciclo-vida-pedido.md](06-ciclo-vida-pedido.md) | Demais estados | State |
 | Novo tipo de item vendável (ex.: assinatura, kit sazonal) | Nova subclasse de `ItemVendavel` (e, se persistida, discriminador e tabela na migração) | Nenhuma classe existente | `Combo`, `ConsultarItensVendaveis`, carrinho, preço, estoque | Composite |
 
 Frase-guia: "o ponto de variação já está isolado atrás de um contrato; a mudança entra como uma classe nova e um registro, e as regras centrais não são alteradas".
+
+### Consumidores do Composite na E3
+
+`GerenciarCarrinho` usa `ItemVendavelInfo` para formar linhas pelo SKU e preço próprios. `ConsultarDisponibilidadeDoCarrinho` agrega componentes físicos das linhas e consulta `ConsultarSaldo`; não distingue tipos concretos nem reserva estoque. O problema são kits aninhados e componentes compartilhados entre linhas: inspecionar `instanceof Combo` em cada consumidor duplicaria regras. Um novo tipo `PacoteEspecial`, definido apenas em `CarrinhoAplicacaoTests`, passa pelo catálogo, carrinho, preço e disponibilidade sem alteração dos consumidores.
+
+
+## E5: participantes implementados de promoções e cupons
+
+| Pattern | Problema e participantes reais | Extensão verificada |
+|---|---|---|
+| Strategy | Tipos distintos de campanha e conflito: `PromocaoBase`, `PromocaoLeveXPagueY`, `PromocaoPercentualPorCategoria`, `PromocaoValorFixoAcimaDe`, `PromocaoPercentualPrimeiraCompra`, `PromocaoFreteGratis`, `MotorDePromocoes`, `PoliticaPadrao`, `PoliticaSomenteMaiorDesconto` | Política alternativa e sexto tipo de teste sem alterar os existentes |
+| Strategy de cupom | `BeneficioCupom`, `PercentualCupom`, `ValorFixoCupom`, `FreteGratisCupom`, `ReducaoFreteCupom`, `AvaliadorCupom` | Novo benefício registrado em teste |
+| Composite/Specification | `CondicaoElegibilidade`, folhas `PrimeiraCompra`, `ValorMinimo`, `CategoriaDoProduto`, `ItemPorSku`, `RegiaoDeEntrega`, `PeriodoDeVigencia`, `PerfilDoCliente`; compostos `CondicaoE`, `CondicaoOu`, `CondicaoNao` e `CondicaoRegistry` | Tabela de verdade e folha adicional compilada pelo registro |
+| Factory Method com registro | `PromocaoFactory`, `LeveXPagueYFactory`, `PercentualPorCategoriaFactory`, `ValorFixoAcimaDeFactory`, `PercentualPrimeiraCompraFactory`, `FreteGratisFactory`, `PromocaoFactoryRegistry` | SEXTA_TESTE é criado por configuração, sem switch no motor, CRUD ou persistência |
+| Chain of Responsibility | `EtapaPromocoes`, `EtapaCupom`, `EtapaFreteBruto`, cadeia explícita em `ConfiguracaoPreco` e `CalculoPreco` | Handler de teste inserido na cadeia; isolamento entre cálculos |
+| Observer | `OuvinteDePedidosDoCupom`, `ConfirmarUsoCupom`, eventos existentes de recusa/cancelamento | Devolução idempotente sem modificar o domínio do pedido |
+| Facade (existente) | `CheckoutFacade` coordena consumo junto de pedido, estoque e limpeza | Rollback após consumo/flush e disputa da mesma seleção |
+
+As descrições e tabelas preliminares das seções 3.1, 3.2 e 3.7 são substituídas por este inventário para a E5. Categoria é identificada por id e produto comercial por SKU; perfil usa os perfis autenticados existentes. A E7 agora fornece cotação bruta da entrega escolhida ao motor; resumo do carrinho permanece anterior à escolha. Rejeitaram-se switch central de benefícios, método gigante de elegibilidade, preço monolítico e chamadas de liberação inseridas no pedido. Persistência/CRUD, contadores e normalização de código não são patterns adicionais. `PromocoesDominioTests` e `PromocoesCuponsIntegracaoTests` demonstram os pontos de extensão.
+
+
+### Evidência de Adapter e Observer na E6
+
+Cartão traduz centavos e código de autorização; PIX traduz um documento em mapa; boleto traduz título/comprovante. O Target `GatewayPagamento` também expõe `fornecedor()` como identidade persistente. `RegistroGateways` escolhe o bean configurado e rejeita ausência/ambiguidade; não instancia cobranças e não recebe pattern próprio. `PagamentoDominioTests.novoFornecedorRegistradoSubstituiCartaoEPreservaOriginal` registra outra implementação e mantém o fornecedor anterior acessível para estorno, sem alterar regras centrais. Alternativa descartada: switch com APIs de fornecedores dentro do caso de uso.
+
+Observer reutiliza `TransicionarPedido`/`PublicadorEventos` como publicadores e adiciona `OuvinteDePedidosDoPagamento` como ouvinte de `PedidoCancelado`. O estado de origem determina a necessidade de estorno; estoque e cupom mantêm seus ouvintes independentes. Alternativa descartada: chamar gateway no domínio do pedido, invertendo dependências. `PagamentoIntegracaoTests.Eventos` demonstra outro ouvinte registrado sem mudar pedido. State continua nas classes existentes do ciclo de vida; não se duplicam suas regras em tabelas de pagamento. Repositório SQL, DTOs e migração não recebem patterns próprios.
+
+
+### Adapter, preço e coordenação na E7
+
+| Pattern / papel | Participantes reais | Problema / mudança facilitada |
+|---|---|---|
+| Adapter / Target | `ProvedorFrete`, `ContextoFrete`, `CotacaoFrete` | Contrato comum de cotação, sem API externa no checkout |
+| Adapter / adapters | `AdaptadorEntregaEconomica`, `AdaptadorEntregaExpressa` | Tradução das duas interfaces distintas |
+| Adapter / adaptees | `TransporteEconomicoFicticio`, `TransporteExpressoFicticio` | UF/centavos versus documento por região |
+| Chain / handlers existentes | `PipelinePreco`, `EtapaPromocoes`, `EtapaCupom`, `EtapaFreteBruto`, `EtapaTotal` | Cotação informada antes de benefícios, sem dupla dedução |
+| Strategy / benefícios existentes | `PromocaoFreteGratis`, benefícios de cupom, `PoliticaConflito` | Frete elegível e conflitos no mesmo motor de itens |
+| Facade / coordenador | `CheckoutFacade`, `RevalidarCheckout` | Seleção explícita e revalidação sem lógica no controller |
+| State / contexto e estados | `Pedido`, `EstadoPedido` e estados existentes | Mesmo fluxo autorizado até ENTREGUE |
+
+Alternativas descartadas: switch de APIs de transporte no checkout; frete grátis calculado por if fora do motor; controller coordenando escrita de pedido/estoque/cupom; outro status de entrega paralelo aos estados existentes. `RegistroProvedoresFrete`, DTOs, configuração e migração não recebem pattern próprio. Strategy adicional para modalidade duplicaria o contrato existente sem necessidade. `EntregaIntegracaoTests.novaTransportadoraESelecionadaSemMudarCheckout` registra novo bean e conclui compra sem alterar consumidores, demonstrando extensibilidade concreta. Javadoc identifica os papéis Adapter; os participantes de preço/Facade/State preservam seus papéis existentes.
+
+
+### Evidência de Observer e canais na E8 (grupo 1)
+
+`OuvinteDePedidosDaNotificacao` observa `PedidoCriado`, `PedidoPago`, `PedidoPagamentoRecusado`, `PedidoEnviado` e `PedidoCancelado` após commit. `EnviarNotificacoes` distribui a mesma mensagem a cada bean `CanalNotificacao`; `CanalNotificacaoSimulado` é o canal de e-mail fictício. `DestinatariosNotificacaoJdbc` resolve o e-mail pelo cliente em leitura REQUIRES_NEW. Falha de resolução é isolada no ouvinte; falha de envio é isolada por canal, com logs de pedido/acontecimento/canal/categoria sem endereço ou corpo.
+
+Alternativas descartadas: chamadas diretas do pedido à comunicação (acoplamento de interessados), switch por tecnologia (edição a cada canal) e envio antes do commit (poderia avisar compra revertida). Consulta de destinatário e montagem de mensagem não recebem pattern próprio. Não há fila durável nem retentativa automática; queda entre commit e envio pode perder a comunicação simulada.
+
+`NotificacoesIntegracaoTests` registra novo canal e novo interessado sem mudar pedido/pagamento, verifica os cinco acontecimentos após commit e ausência de envio em rollback ou fora de transação. `EnviarNotificacoesTests` cobre configuração inválida, isolamento e logs sem dados sensíveis. `PagamentoIntegracaoTests` verifica notificação única no replay sequencial/concorrente, rollback sem comunicação, recusa/cancelamento com cupom e sucesso do pagamento mesmo com falha do canal.
+
+### Observer de auditoria — E8, grupo 2
+
+O problema é manter a trilha atômica de operações de vários módulos sem cada serviço conhecer persistência de auditoria. Os publicadores são `GerenciarCategorias`, `GerenciarProdutos`, `GerenciarCombos`, `AjustarEstoque`, `GerenciarPromocoes`, `GerenciarCupons`, `GerenciarUsuariosAdministrativos` e `TransicionarPedido`; usam `PublicarOperacaoAdministrativa` e a porta `PublicadorEventos`. O evento é `OperacaoAdministrativa`, o adaptador de publicação é `PublicadorEventosSpring` e o Observer é `OuvinteDeOperacoesAdministrativas`, que grava `RegistroAuditoria` por `RegistrosAuditoriaJpa`.
+
+Um novo `@EventListener` pode observar o evento sem editar publicadores; `AuditoriaIntegracaoTests.NovoInteressado` demonstra a extensão. A escrita da trilha participa da transação original e pode abortá-la, enquanto o Observer de comunicação continua após commit. Não foi criado um pattern para montar snapshots, paginar ou persistir dados.
+
+### E9 — Relatórios gerenciais: nenhum pattern
+
+A change `relatorios-gerenciais` não introduz Design Pattern, por decisão deliberada: o enunciado fixa os indicadores (RF-66 e RF-72) e não há ponto de variação, como tipos de relatório, formas de cálculo ou formatos de saída que mudem ou cresçam. Os três relatórios são consultas distintas, não variantes de um comportamento. A alternativa descartada foi Strategy por tipo de relatório: seria uma interface com uma implementação por consulta e nenhum segundo uso, ou seja, um pattern artificial. Os patterns exigidos já estão cobertos pelas etapas 2 a 8; se surgir um requisito de tipos de relatório escolhidos em tempo de execução, o pattern entra com o requisito que o justifique.

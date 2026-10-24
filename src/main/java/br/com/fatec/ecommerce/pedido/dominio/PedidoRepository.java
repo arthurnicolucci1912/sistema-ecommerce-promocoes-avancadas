@@ -14,6 +14,11 @@ public interface PedidoRepository {
 
     Optional<Pedido> buscarPorId(Long id);
 
+    /** Serializa pagamento/cancelamento; exige transacao ativa e precede locks de estoque/cupom. */
+    default Optional<Pedido> bloquearPorId(Long id) {
+        throw new UnsupportedOperationException("Bloqueio de pedido não implementado neste adaptador.");
+    }
+
     /** Busca sempre pelo par (id, clienteId); pedido de outro cliente nao e encontrado. */
     Optional<Pedido> buscarPorIdECliente(Long id, Long clienteId);
 
@@ -24,4 +29,9 @@ public interface PedidoRepository {
     Pagina<ResumoPedido> listarResumosDoCliente(Long clienteId, int pagina, int tamanho);
 
     boolean existeDoCliente(Long clienteId);
+
+    /** Historico de aprovacao, incluindo pedidos posteriormente cancelados (primeira compra). */
+    default boolean existePagamentoAprovadoAte(Long clienteId, java.time.Instant momento) {
+        throw new UnsupportedOperationException("Consulta de pagamentos não implementada neste adaptador.");
+    }
 }

@@ -9,7 +9,12 @@ import br.com.fatec.ecommerce.compartilhado.dominio.Dinheiro;
  *
  * @param modalidade modalidade de entrega cotada
  * @param custo      custo do frete
- * @param prazoDias  prazo de entrega em dias
+ * @param prazoDias  prazo estimado em dias uteis apos aprovacao do pagamento
  */
 public record CotacaoFrete(String modalidade, Dinheiro custo, int prazoDias) {
+    public CotacaoFrete {
+        if (modalidade == null || !modalidade.matches("[A-Z0-9_-]{1,40}") || custo == null
+                || custo.ehNegativo() || custo.valor().precision() > 12 || prazoDias <= 0)
+            throw new br.com.fatec.ecommerce.compartilhado.dominio.DadoInvalidoException("Cotação de frete inválida.");
+    }
 }

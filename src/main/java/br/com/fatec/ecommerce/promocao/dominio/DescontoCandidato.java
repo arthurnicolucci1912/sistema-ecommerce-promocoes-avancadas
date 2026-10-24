@@ -20,5 +20,9 @@ public record DescontoCandidato(
         Dinheiro valor,
         AlvoDesconto alvo,
         ModoAcumulacao modo,
-        int prioridade) {
+        int prioridade, java.time.Instant criadoEm) {
+    public DescontoCandidato(Long promocaoId, String nome, Dinheiro valor, AlvoDesconto alvo,
+            ModoAcumulacao modo, int prioridade) {
+        this(promocaoId, nome, valor, alvo, modo, prioridade, java.time.Instant.EPOCH);
+    }
 }

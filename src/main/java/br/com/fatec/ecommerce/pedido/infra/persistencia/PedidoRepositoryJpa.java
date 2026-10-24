@@ -18,6 +18,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 class PedidoRepositoryJpa implements PedidoRepository {
 
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager em;
     private final PedidoJpaRepository jpa;
 
     PedidoRepositoryJpa(PedidoJpaRepository jpa) {
@@ -43,6 +45,21 @@ class PedidoRepositoryJpa implements PedidoRepository {
     }
 
     @Override
+    public Optional<Pedido> bloquearPorId(Long id) {
+        // Primeiro bloqueia apenas a linha, antes de materializar as colecoes EAGER.
+        // refresh + SUBSELECT de colecoes provoca falha no carregador desta versao do Hibernate.
+        if (em.createNativeQuery("SELECT id FROM pedido WHERE id = :id FOR UPDATE", Long.class)
+                .setParameter("id", id).getResultList().isEmpty()) return Optional.empty();
+        Pedido pedido = em.find(Pedido.class, id);
+        if (em.getLockMode(pedido) != jakarta.persistence.LockModeType.PESSIMISTIC_WRITE) {
+            // Uma leitura de propriedade anterior pode ter deixado o agregado desatualizado.
+            em.detach(pedido);
+            pedido = em.find(Pedido.class, id, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        }
+        return Optional.of(pedido);
+    }
+
+    @Override
     public Optional<Pedido> buscarPorIdECliente(Long id, Long clienteId) {
         return jpa.findByIdAndClienteId(id, clienteId);
     }
@@ -61,6 +78,11 @@ class PedidoRepositoryJpa implements PedidoRepository {
     @Override
     public boolean existeDoCliente(Long clienteId) {
         return jpa.existsByClienteId(clienteId);
+    }
+
+    @Override
+    public boolean existePagamentoAprovadoAte(Long clienteId, java.time.Instant momento) {
+        return jpa.existePagamentoAprovadoAte(clienteId, momento);
     }
 
     private static PageRequest maisRecentesPrimeiro(int pagina, int tamanho) {

@@ -10,7 +10,8 @@ package br.com.fatec.ecommerce.notificacao.dominio;
  * notificacao. O modulo {@code pedido} nao conhece nenhum canal; {@code notificacao} reage a eventos e envia
  * por todos os canais ativos.
  *
- * <p>Implementacoes concretas: etapa E8 (modulo {@code notificacao}). Nao ha implementacao na fundacao.
+ * <p>Implementacao E8: {@code CanalNotificacaoSimulado}; {@code EnviarNotificacoes} distribui a mensagem aos
+ * beans registrados e isola falhas por canal. Os ouvintes executam apenas apos commit.
  *
  * <p>Contrato provisorio (onda 0): mudancas via PR revisado pelos consumidores e registradas em docs/03-arquitetura.md.
  *

@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
@@ -87,6 +88,13 @@ public class TratadorGlobalDeErros extends ResponseEntityExceptionHandler {
         return problema(HttpStatus.BAD_REQUEST, "Dado inválido", ex.getMessage(), "dado-invalido");
     }
 
+    /** O autoflush de uma consulta tambem pode detectar versao obsoleta, antes do salvar explicito. */
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    ProblemDetail tratar(OptimisticLockingFailureException ex) {
+        return problema(HttpStatus.CONFLICT, "Conflito concorrente",
+                "Os dados foram alterados por outra operação. Consulte novamente e tente outra vez.", "conflito");
+    }
+
     /** Falha de autenticacao lancada dentro de um controller: 401, e nao 500. */
     @ExceptionHandler(NaoAutenticadoException.class)
     ResponseEntity<ProblemDetail> tratar(NaoAutenticadoException ex) {
@@ -103,6 +111,11 @@ public class TratadorGlobalDeErros extends ResponseEntityExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     ResponseEntity<ProblemDetail> tratar(AccessDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Problemas.acessoNegado());
+    }
+
+    @ExceptionHandler(br.com.fatec.ecommerce.compartilhado.dominio.ServicoIndisponivelException.class)
+    ProblemDetail tratarIndisponivel(br.com.fatec.ecommerce.compartilhado.dominio.ServicoIndisponivelException ex) {
+        return problema(HttpStatus.SERVICE_UNAVAILABLE, "Serviço indisponível", ex.getMessage(), "servico-indisponivel");
     }
 
     @ExceptionHandler(Exception.class)

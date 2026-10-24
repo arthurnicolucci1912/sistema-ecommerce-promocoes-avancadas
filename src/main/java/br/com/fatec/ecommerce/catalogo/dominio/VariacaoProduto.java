@@ -76,4 +76,12 @@ public class VariacaoProduto extends ItemVendavel {
     public Map<String, String> getAtributos() {
         return Collections.unmodifiableMap(atributos);
     }
+
+    @Override
+    public String descricaoVariacao() {
+        if (atributos.isEmpty()) { return null; }
+        return atributos.entrySet().stream().sorted(Map.Entry.comparingByKey())
+                .map(e -> e.getKey() + ": " + e.getValue())
+                .collect(java.util.stream.Collectors.joining(", "));
+    }
 }

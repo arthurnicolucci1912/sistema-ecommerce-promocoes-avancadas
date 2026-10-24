@@ -1,5 +1,6 @@
 package br.com.fatec.ecommerce.estoque.aplicacao;
 
+import br.com.fatec.ecommerce.compartilhado.aplicacao.PublicarOperacaoAdministrativa;
 import br.com.fatec.ecommerce.compartilhado.dominio.ConflitoException;
 import br.com.fatec.ecommerce.compartilhado.dominio.DadoInvalidoException;
 import br.com.fatec.ecommerce.estoque.dominio.SaldoEstoque;
@@ -9,6 +10,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
+ * <p>Observer administrativo: publica snapshots permitidos na transação original; falha da trilha reverte a operação.
+ *
  * Caso de uso: ajuste administrativo do disponivel (entrada de mercadoria, perda, inventario) somando ou
  * subtraindo uma quantidade, com motivo obrigatorio. Usa a mesma tecnica da reserva: atualizacao condicional
  * {@code disponivel + delta >= 0}; um ajuste que deixaria o disponivel negativo e rejeitado (409). O saldo precisa
@@ -18,9 +21,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class AjustarEstoque {
 
+    private final PublicarOperacaoAdministrativa auditoria;
     private final SaldoEstoqueRepository saldos;
 
-    public AjustarEstoque(SaldoEstoqueRepository saldos) {
+    public AjustarEstoque(SaldoEstoqueRepository saldos, PublicarOperacaoAdministrativa auditoria) {
+        this.auditoria = auditoria;
         this.saldos = saldos;
     }
 
@@ -37,6 +42,8 @@ public class AjustarEstoque {
             throw new ConflitoException("O ajuste de " + delta + " deixaria o estoque negativo (disponível "
                     + disponivel + ").");
         }
+        auditoria.publicar("ESTOQUE_AJUSTADO", "VARIACAO", variacaoId, null,
+                java.util.Map.of("quantidade", delta, "motivo", motivo.trim()));
         return saldos.buscarPorVariacaoId(variacaoId).orElseThrow(() -> new SaldoNaoEncontradoException(variacaoId));
     }
 }

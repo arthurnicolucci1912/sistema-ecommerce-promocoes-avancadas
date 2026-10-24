@@ -67,6 +67,8 @@ class RegrasDeArquiteturaTests {
                     "br.com.fatec.ecommerce.pagamento..",
                     "br.com.fatec.ecommerce.entrega..",
                     "br.com.fatec.ecommerce.notificacao..",
+                    "br.com.fatec.ecommerce.auditoria..",
+                    "br.com.fatec.ecommerce.relatorio..",
                     "br.com.fatec.ecommerce.infra.demo..")
             .because("o compartilhado e a base de todos os modulos: a dependencia so vai dos modulos para ele");
 
@@ -92,12 +94,52 @@ class RegrasDeArquiteturaTests {
             .because("o pedido so publica eventos; o estoque reage a eles e o catalogo e consultado por outras etapas");
 
     @ArchTest
+    static final ArchRule pedidoEPagamentoNaoDependemDeNotificacao = noClasses()
+            .that().resideInAnyPackage("br.com.fatec.ecommerce.pedido..", "br.com.fatec.ecommerce.pagamento..")
+            .should().dependOnClassesThat().resideInAPackage("br.com.fatec.ecommerce.notificacao..")
+            .because("a comunicacao observa eventos sem acoplar pedido ou pagamento aos canais");
+
+    @ArchTest
+    static final ArchRule relatorioLeSnapshotsPorConsultaSemDependerDeOutrosModulos = noClasses()
+            .that().resideInAPackage("br.com.fatec.ecommerce.relatorio..")
+            .should().dependOnClassesThat().resideInAnyPackage(
+                    "br.com.fatec.ecommerce.pedido..",
+                    "br.com.fatec.ecommerce.promocao..",
+                    "br.com.fatec.ecommerce.catalogo..",
+                    "br.com.fatec.ecommerce.estoque..",
+                    "br.com.fatec.ecommerce.pagamento..",
+                    "br.com.fatec.ecommerce.entrega..",
+                    "br.com.fatec.ecommerce.cliente..")
+            .because("os relatorios sao somente leitura: consultam os snapshots por SQL e nao importam classes de outros modulos");
+
+    @ArchTest
+    static final ArchRule ninguemDependeDoModuloDeRelatorio = noClasses()
+            .that().resideOutsideOfPackage("br.com.fatec.ecommerce.relatorio..")
+            .should().dependOnClassesThat().resideInAPackage("br.com.fatec.ecommerce.relatorio..")
+            .because("o relatorio e um modulo folha de consulta; nenhum outro modulo reage a ele");
+
+    @ArchTest
     static final ArchRule contratosDaOnda0SoTemImplementacaoNaInfra = noClasses()
             .that().areNotInterfaces()
             .and().resideOutsideOfPackage("..infra..")
-            .should().implement(assignaveisAoContrato())
+            .should().implement(assignaveisAoContratoSemEtapaPreco())
             .because("os contratos da onda 0 sao implementados por adaptadores/estrategias das etapas dos donos, "
                     + "e a fundacao nao traz implementacao concreta (so o adaptador de PublicadorEventos, em infra)");
+
+    @ArchTest
+    static final ArchRule etapasDePrecoFicamNoDominioDePreco = noClasses()
+            .that().areNotInterfaces()
+            .and().resideOutsideOfPackages("br.com.fatec.ecommerce.preco.dominio..", "..infra..")
+            .should().implement(EtapaPreco.class)
+            .because("a E3 introduz handlers de negocio no dominio de preco, sem liberar os demais contratos");
+
+    @ArchTest
+    static final ArchRule estrategiasPromocionaisNoDominioOuInfra = noClasses()
+            .that().areNotInterfaces()
+            .and().resideOutsideOfPackages("br.com.fatec.ecommerce.promocao.dominio..", "..infra..")
+            .should().implement(assignableTo(Promocao.class).or(assignableTo(PoliticaConflito.class))
+                    .or(assignableTo(CondicaoElegibilidade.class)))
+            .because("a E5 libera apenas as estrategias promocionais em seu proprio dominio");
 
     @Test
     void contratosDaOnda0SaoInterfaces() {
@@ -118,10 +160,12 @@ class RegrasDeArquiteturaTests {
                 .as("residem no catalogo fora de catalogo.dominio.evento");
     }
 
-    private static DescribedPredicate<JavaClass> assignaveisAoContrato() {
-        DescribedPredicate<JavaClass> predicado = assignableTo(CONTRATOS_DA_ONDA_0.get(0));
-        for (Class<?> contrato : CONTRATOS_DA_ONDA_0.subList(1, CONTRATOS_DA_ONDA_0.size())) {
-            predicado = predicado.or(assignableTo(contrato));
+    private static DescribedPredicate<JavaClass> assignaveisAoContratoSemEtapaPreco() {
+        DescribedPredicate<JavaClass> predicado = assignableTo(GatewayPagamento.class);
+        for (Class<?> contrato : List.of(ProvedorFrete.class, CanalNotificacao.class, PublicadorEventos.class)) {
+            if (contrato != EtapaPreco.class) {
+                predicado = predicado.or(assignableTo(contrato));
+            }
         }
         return predicado.as("algum contrato da onda 0");
     }

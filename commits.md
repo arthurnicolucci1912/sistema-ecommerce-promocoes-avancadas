@@ -2,7 +2,7 @@
 
 Este documento relaciona cada commit do repositório à change do OpenSpec e aos grupos de tarefas que ele contém. Para cada um, mostra o responsável **planejado**, segundo [docs/11-divisao-equipe.md](docs/11-divisao-equipe.md), e quem **implementou de fato**.
 
-**Resumo da situação real:** até agora, todo o desenvolvimento foi feito por **Arthur**, com auxílio do assistente de IA Claude Code. Lucas Gomes, Amanda Duara e Mateus Rocha ainda não implementaram nenhuma parte do código. Os commits 5, 6 e 7 chegaram a ser registrados com a identidade de Lucas Gomes. Em 2026-10-15 a autoria foi corrigida para Arthur por rebase; os hashes atuais são `429ca70`, `6d3d278` e `b886317`.
+**Resumo da situação real:** até agora, todo o desenvolvimento foi feito por **Arthur**, com auxílio do assistente de IA Claude Code. Lucas Gomes, Amanda Duara e Mateus Rocha não implementaram nenhuma parte do código registrada aqui; as changes atribuídas a eles foram implementadas por Arthur, preservando a atribuição original em `docs/11`. Os commits 5, 6 e 7 chegaram a ser registrados com a identidade de Lucas Gomes. Em 2026-10-15 a autoria foi corrigida para Arthur por rebase; os hashes atuais são `429ca70`, `6d3d278` e `b886317`.
 
 ## Commits
 
@@ -20,14 +20,16 @@ Este documento relaciona cada commit do repositório à change do OpenSpec e aos
 | 10 | `8bd996d` | 2026-10-19 | Arthur | `catalogo-estoque`: grupo 5 (API pública e administrativa do catálogo e do estoque, regras de rota por perfil, regras ArchUnit entre `estoque`, `catalogo` e `pedido`) | Lucas | Arthur |
 | 11 | `a5a6f87` | 2026-10-19 | Arthur | `catalogo-estoque`: grupo 6 (carga de demonstração de catálogo, combo e estoque no perfil `dev`; pedido demo com reserva de estoque) | Lucas | Arthur |
 | 12 | `e0a95a5` | 2026-10-19 | Arthur | `catalogo-estoque`: grupo 7 (documentação de catálogo, estoque, Composite e Observer; registro da divisão real em `docs/11` e no board; ajustes de Javadoc e `openspec/config.yaml`) | Lucas | Arthur |
+| 13 | `20ccb0b` | 2026-10-19 | Arthur | `catalogo-estoque`: grupo 8 (verificação final e roteiro manual) e arquivamento da change; specs principais `catalogo` e `estoque`; board atualizado | Lucas | Arthur |
 
 ## Divergências entre o planejado e o realizado
 
 | Change | Responsável planejado | Situação |
 |---|---|---|
 | `estruturar-documentacao`, `fundacao-projeto`, `pedido-ciclo-vida` | Arthur | Feitas por Arthur, conforme o planejado |
-| `catalogo-estoque` (grupos 1 a 7) | Lucas | Feitos por Arthur (commits 5 a 12, autoria registrada corretamente) |
-| `catalogo-estoque` (grupo 8), `carrinho-compras`, `relatorios-gerenciais` | Lucas | Não iniciados |
-| `checkout` | Arthur | Não iniciado (depende de `carrinho-compras`) |
-| `promocoes-cupons`, auditoria | Amanda | Não iniciados |
-| `pagamento-idempotencia`, `entrega-frete`, eventos e notificações | Mateus | Não iniciados |
+| `catalogo-estoque` (grupos 1 a 8, arquivada) | Lucas | Feita por Arthur (commits 5 a 13, autoria registrada corretamente) |
+| `carrinho-compras` | Lucas | Feita por Arthur (sessão assistida); commits 14 e 15 |
+| `relatorios-gerenciais` | Lucas | Feita por Arthur (sessão assistida); commits 14 e 15 |
+| `checkout` | Arthur | Feita por Arthur, conforme o planejado; commits 14 e 15 |
+| `promocoes-cupons`, auditoria | Amanda | Feitas por Arthur (sessão assistida); commits 14 e 15 |
+| `pagamento-idempotencia`, `entrega-frete`, eventos e notificações | Mateus | Feitas por Arthur (sessão assistida); commits 14 e 15 |

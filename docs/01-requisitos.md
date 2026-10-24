@@ -2,7 +2,7 @@
 
 > **Objetivo:** listar os requisitos funcionais (RF) e não funcionais (RNF) extraídos do enunciado, com identificador, separados em obrigatórios e opcionais, para servir de base de rastreabilidade do roadmap e dos testes.
 > **Etapas do roadmap relacionadas:** todas (cada requisito indica a etapa em que é entregue).
-> **Status:** rascunho
+> **Status:** implementado (E1–E9): os requisitos foram atendidos pelas changes arquivadas até 2026-10-23 (ver [08-roadmap.md](08-roadmap.md)).
 
 **Legenda de etapas:** E1 fundação, E2 catálogo e estoque, E3 carrinho, E4 checkout e pedido, E5 promoções e cupons, E6 pagamento e idempotência, E7 entrega e frete, E8 eventos, notificações e auditoria, E9 relatórios (ver [08-roadmap.md](08-roadmap.md)).
 
