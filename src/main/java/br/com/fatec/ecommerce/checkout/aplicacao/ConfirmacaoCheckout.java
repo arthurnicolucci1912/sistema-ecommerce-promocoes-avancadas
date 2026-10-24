@@ -73,6 +73,9 @@ public record ConfirmacaoCheckout(@NotNull @PositiveOrZero Long versaoCarrinho,
     }
 
     private static BigDecimal normalizar(BigDecimal valor) {
-        return valor == null ? null : valor.stripTrailingZeros();
+        if (valor == null) { return null; }
+        BigDecimal semZeros = valor.stripTrailingZeros();
+        // Escala negativa (20 -> 2E+1) seria serializada em notacao cientifica no JSON.
+        return semZeros.scale() < 0 ? semZeros.setScale(0) : semZeros;
     }
 }

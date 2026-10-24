@@ -213,39 +213,41 @@ Cada seção obrigatória do enunciado é atendida por pelo menos uma etapa. A c
 Exigências do enunciado para a apresentação prática: pelo menos uma compra completa, um cenário com múltiplas promoções e um cenário de erro. Os integrantes devem também explicar a arquitetura e os patterns, e estar prontos para a alteração de requisito (ver seção 6).
 
 Preparação:
-- [ ] Sistema sobe do zero com as instruções de [10-execucao.md](10-execucao.md) (banco limpo, migrações, usuários de demonstração).
-- [ ] Dados fictícios carregados: categorias e subcategorias, produtos com variações, estoque, ao menos um combo/kit, promoções e cupons, usuários por perfil.
-- [ ] Nenhum dado real de cartão ou pessoal nos dados de demonstração.
+- [x] Sistema sobe do zero com as instruções de [10-execucao.md](10-execucao.md) (banco limpo, migrações, usuários de demonstração).
+- [x] Dados fictícios carregados: categorias e subcategorias, produtos com variações, estoque, ao menos um combo/kit, promoções e cupons, usuários por perfil.
+- [x] Nenhum dado real de cartão ou pessoal nos dados de demonstração.
 
 Compra completa (cliente):
-- [ ] Autenticar como cliente.
-- [ ] Consultar o catálogo e adicionar produtos ao carrinho; alterar quantidade e remover um item, mostrando o recálculo.
-- [ ] Informar endereço e escolher a modalidade de entrega.
-- [ ] Mostrar a composição do preço: subtotal, descontos aplicados, frete e total.
-- [ ] Realizar o checkout e mostrar o pedido em `AGUARDANDO_PAGAMENTO` com estoque reservado.
-- [ ] Confirmar o pagamento (simulado) e mostrar pedido `PAGO`, baixa de estoque e notificação enviada.
-- [ ] Acompanhar o pedido até `ENTREGUE` (ações administrativas de preparação, envio e entrega) e o histórico de transições.
+- [x] Autenticar como cliente.
+- [x] Consultar o catálogo e adicionar produtos ao carrinho; alterar quantidade e remover um item, mostrando o recálculo.
+- [x] Informar endereço e escolher a modalidade de entrega.
+- [x] Mostrar a composição do preço: subtotal, descontos aplicados, frete e total.
+- [x] Realizar o checkout e mostrar o pedido em `AGUARDANDO_PAGAMENTO` com estoque reservado.
+- [x] Confirmar o pagamento (simulado) e mostrar pedido `PAGO`, baixa de estoque e notificação enviada.
+- [x] Acompanhar o pedido até `ENTREGUE` (ações administrativas de preparação, envio e entrega) e o histórico de transições.
 
 Múltiplas promoções:
-- [ ] Carrinho em que duas ou mais promoções são elegíveis ao mesmo tempo (por exemplo, percentual por categoria, leve 3 pague 2, frete grátis).
-- [ ] Mostrar a política de conflito em ação: caso com acumuláveis, caso com promoção exclusiva e caso de empate resolvido por prioridade (ver D4 em [05-regras-negocio.md](05-regras-negocio.md)).
-- [ ] Mostrar o desconto de cada promoção discriminado no resumo e registrado no pedido.
-- [ ] Mostrar cupom válido combinado com promoções.
+- [x] Carrinho em que duas ou mais promoções são elegíveis ao mesmo tempo (por exemplo, percentual por categoria, leve 3 pague 2, frete grátis).
+- [x] Mostrar a política de conflito em ação: caso com acumuláveis, caso com promoção exclusiva e caso de empate resolvido por prioridade (ver D4 em [05-regras-negocio.md](05-regras-negocio.md)).
+- [x] Mostrar o desconto de cada promoção discriminado no resumo e registrado no pedido.
+- [x] Mostrar cupom válido combinado com promoções.
 
 Cenário de erro (apresentar ao menos um, de preferência dois ou três):
-- [ ] Cupom inválido (inexistente, expirado, esgotado ou incompatível), com mensagem clara.
-- [ ] Estoque insuficiente no checkout, sem reserva parcial.
-- [ ] Pagamento recusado: pedido em `PAGAMENTO_RECUSADO` e reserva liberada.
-- [ ] Confirmação de pagamento enviada duas vezes, com efeito único (idempotência).
-- [ ] Transição inválida de pedido rejeitada (por exemplo, enviar pedido não pago).
+- [x] Cupom inválido (inexistente, expirado, esgotado ou incompatível), com mensagem clara.
+- [x] Estoque insuficiente no checkout, sem reserva parcial.
+- [x] Pagamento recusado: pedido em `PAGAMENTO_RECUSADO` e reserva liberada.
+- [x] Confirmação de pagamento enviada duas vezes, com efeito único (idempotência).
+- [x] Transição inválida de pedido rejeitada (por exemplo, enviar pedido não pago).
 
 Administração e demais requisitos:
-- [ ] Criar/alterar uma promoção pelo perfil `PROMOCOES` e mostrar o registro na auditoria.
-- [ ] Mostrar que um perfil sem permissão recebe acesso negado.
-- [ ] Mostrar o relatório de desconto por campanha.
-- [ ] Mostrar o Swagger e executar a suíte de testes automatizados.
-- [ ] Mostrar o diagrama de classes, o ciclo de vida do pedido e os diagramas de sequência da documentação.
-- [ ] Mostrar o histórico de commits com a participação de todos os integrantes.
+- [x] Criar/alterar uma promoção pelo perfil `PROMOCOES` e mostrar o registro na auditoria.
+- [x] Mostrar que um perfil sem permissão recebe acesso negado.
+- [x] Mostrar o relatório de desconto por campanha.
+- [x] Mostrar o Swagger e executar a suíte de testes automatizados.
+- [x] Mostrar o diagrama de classes, o ciclo de vida do pedido e os diagramas de sequência da documentação.
+- [ ] Mostrar o histórico de commits com a participação de todos os integrantes. _Pendente: `commits.md` registra que só Arthur implementou; os demais integrantes ainda não têm commits._
+
+Ensaio em 2026-10-24: banco recriado (`docker compose down -v` + `up -d`), app em perfil `dev` e roteiro executado por curl/jq com os usuários de demonstração, repetido do zero com o script do ensaio sem divergências. Compra: previa 88,94 (itens) e 113,94 (com frete 25,00), checkout 201 pedido 2 `AGUARDANDO_PAGAMENTO` (caneca 14/1 para 13/2), PIX `PIX-2` 201, confirmação `APROVADO` 200 e replay 200 sem novo histórico (reservado 2 para 1), preparação/envio/entrega 200 até `ENTREGUE`, notificações `email-simulado` no log. Promoções: carrinho 3 camisetas M + 2 cafés, empate de duas não acumuláveis resolvido pela prioridade 8, acumuláveis (leve 3 pague 2 59,90; 10% 17,97; frete grátis 25,00) mais cupom `EXEMPLO15` 21,24, total 120,39 (pedido 3 grava os 5 descontos); exclusiva substitui tudo (total 234,50, cupom `INCOMPATIVEL`). Erros: cupom 409 `LIMITE_CLIENTE`/`INEXISTENTE`/`FORA_DA_VIGENCIA`; estoque insuficiente 409 sem reserva parcial (café 25/2 antes e depois); envio de pedido não pago 409; recusa PIX leva o pedido 1 a `PAGAMENTO_RECUSADO` e libera a reserva (13/1 para 14/0). Admin: PUT de promoção 200 por `PROMOCOES`, auditoria `CAMPANHA_CRIADA` (6), `CAMPANHA_ALTERADA`, `CUPOM_CRIADO`, `PEDIDO_CANCELADO`; 403 para CLIENTE em `/api/admin/usuarios`, COMERCIAL em estoque, ESTOQUE em promoções, PROMOCOES em auditoria e vendas; 401 sem token; relatório de campanhas 200 (vendas 234,33; desconto por campanha discriminado). Cancelamento do pedido 3 pago: estorno `CONCLUIDO` (`REF-CARD-3`) e estoque reposto. Swagger UI e `/v3/api-docs` 200 (63 rotas); suíte já validada no dia (`./mvnw -o clean verify`, 649 testes após a correção, 0 falhas); diagramas presentes em `02` (classes), `06` (estados) e `07` (5 de sequência). Observação corrigida no mesmo dia: a prévia de checkout serializava um desconto fixo de 20 como `2E+1`; `ConfirmacaoCheckout` passou a normalizar sem escala negativa (teste `valoresInteirosNaoViramNotacaoCientifica`).
 
 ## 6. Preparação para a alteração de requisito
 
