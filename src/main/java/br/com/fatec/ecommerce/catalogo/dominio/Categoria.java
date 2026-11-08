@@ -62,6 +62,15 @@ public class Categoria {
         this.pai = novoPai;
     }
 
+    /** Renomeia e move de uma vez: o nome novo e validado contra as irmas do pai de DESTINO, sem checagens intermediarias. */
+    public void alterar(String novoNome, Categoria novoPai, ArvoreDeCategorias arvore) {
+        String limpo = nomeValido(novoNome);
+        arvore.validarMovimento(id, idDe(novoPai));
+        arvore.validarNomeUnico(limpo, idDe(novoPai), id);
+        this.nome = limpo;
+        this.pai = novoPai;
+    }
+
     private static String nomeValido(String nome) {
         if (nome == null || nome.isBlank()) {
             throw new DadoInvalidoException("O nome da categoria é obrigatório.");

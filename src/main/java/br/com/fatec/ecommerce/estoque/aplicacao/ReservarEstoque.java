@@ -45,7 +45,11 @@ public class ReservarEstoque {
             throw new ConflitoException("O pedido " + pedidoId + " já tem reserva de estoque.");
         }
         Map<Long, Integer> porVariacao = new TreeMap<>();
-        componentes.forEach(c -> porVariacao.merge(c.variacaoId(), c.quantidade(), Integer::sum));
+        try {
+            componentes.forEach(c -> porVariacao.merge(c.variacaoId(), c.quantidade(), Math::addExact));
+        } catch (ArithmeticException estouro) {
+            throw new DadoInvalidoException("A quantidade total da reserva excede o limite permitido.");
+        }
 
         Instant agora = Instant.now();
         porVariacao.forEach((variacaoId, quantidade) -> {

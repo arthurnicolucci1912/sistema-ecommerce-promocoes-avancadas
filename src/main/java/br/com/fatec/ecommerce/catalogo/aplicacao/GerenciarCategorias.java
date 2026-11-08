@@ -70,8 +70,7 @@ public class GerenciarCategorias {
         Categoria categoria = alvo(id);
         var antes = dados(categoria);
         Categoria novoPai = novoPaiId == null ? null : paiInformado(novoPaiId);
-        categoria.renomear(novoNome, arvore());
-        categoria.mover(novoPai, arvore());
+        categoria.alterar(novoNome, novoPai, arvore());
         Categoria salvo = categorias.salvar(categoria);
         auditar("CATEGORIA_ALTERADA", salvo, antes);
         return salvo;

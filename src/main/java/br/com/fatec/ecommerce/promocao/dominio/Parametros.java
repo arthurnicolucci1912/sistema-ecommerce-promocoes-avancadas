@@ -8,6 +8,12 @@ import java.util.Map;
 /** Conversoes exatas dos dados declarativos; erros de configuracao sao dados invalidos. */
 public final class Parametros {
     private Parametros() { }
+    /** Copia imutavel do mapa declarativo; valor nulo (JSON {"k": null}) e dado invalido, nao NPE. */
+    public static Map<String, Object> copiaSemNulos(Map<String, Object> origem) {
+        if (origem == null) { return Map.of(); }
+        if (origem.entrySet().stream().anyMatch(e -> e.getKey() == null || e.getValue() == null)) { throw invalido("parametros com valor nulo"); }
+        return Map.copyOf(origem);
+    }
     public static String texto(Map<String, Object> p, String nome) {
         Object valor = p.get(nome);
         if (!(valor instanceof String s) || s.isBlank()) { throw invalido(nome); }

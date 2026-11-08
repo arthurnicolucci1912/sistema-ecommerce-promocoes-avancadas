@@ -6,7 +6,11 @@ import java.util.Map;
 /** Arvore declarativa; compilada pelo registro, nunca executada como expressao ou codigo. */
 public record CondicaoConfig(String tipo, Map<String, Object> parametros, List<CondicaoConfig> filhos) {
     public CondicaoConfig {
-        parametros = parametros == null ? Map.of() : Map.copyOf(parametros);
-        filhos = filhos == null ? List.of() : List.copyOf(filhos);
+        parametros = Parametros.copiaSemNulos(parametros);
+        filhos = filhos == null ? List.of() : copiaFilhos(filhos);
+    }
+    private static List<CondicaoConfig> copiaFilhos(List<CondicaoConfig> filhos) {
+        if (filhos.stream().anyMatch(java.util.Objects::isNull)) { throw Parametros.invalido("condicao filha nula"); }
+        return List.copyOf(filhos);
     }
 }

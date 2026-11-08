@@ -14,6 +14,7 @@ public class CondicaoRegistry {
     private CondicaoElegibilidade criar(CondicaoConfig config, int nivel, int[] nos) {
         if (config == null) { return contexto -> true; }
         if (nivel > 16 || ++nos[0] > 128) { throw Parametros.invalido("limite da árvore de condições"); }
+        if (config.tipo() == null || config.tipo().isBlank()) { throw Parametros.invalido("tipo de condição"); }
         var criador = criadores.get(config.tipo());
         if (criador == null) { throw Parametros.invalido("tipo de condição " + config.tipo()); }
         return criador.criar(config.parametros(), config.filhos().stream().map(f -> criar(f, nivel + 1, nos)).toList());

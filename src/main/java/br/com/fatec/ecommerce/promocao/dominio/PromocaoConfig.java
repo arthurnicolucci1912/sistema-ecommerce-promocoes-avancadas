@@ -48,6 +48,6 @@ public class PromocaoConfig {
         if (nome == null || nome.isBlank() || nome.trim().length()>255 || tipo == null || tipo.isBlank()
                 || inicio == null || fim == null || !inicio.isBefore(fim)) { throw Parametros.invalido("campanha/cupom"); }
         this.nome=nome.trim(); this.tipo=tipo; this.inicio=inicio; this.fim=fim;
-        this.parametros=Map.copyOf(parametros == null ? Map.of() : parametros); this.condicao=condicao;
+        this.parametros=Parametros.copiaSemNulos(parametros); this.condicao=condicao;
     }
 }

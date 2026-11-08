@@ -29,8 +29,10 @@ public class Cupom {
     }
     public static String normalizar(String valor) {
         if(valor==null) { throw Parametros.invalido("codigo"); }
-        String codigo=valor.trim().toUpperCase(java.util.Locale.ROOT);
-        if(!codigo.matches("[A-Z0-9_-]{3,40}")) { throw Parametros.invalido("codigo"); } return codigo;
+        String aparado=valor.trim();
+        // valida antes de maiusculizar: 'ß' -> 'SS' ou 'ﬁ' -> 'FI' nao podem virar ASCII valido
+        if(!aparado.matches("[A-Za-z0-9_-]{3,40}")) { throw Parametros.invalido("codigo"); }
+        return aparado.toUpperCase(java.util.Locale.ROOT);
     }
     public void alterar(String nome, String tipo, Instant inicio, Instant fim, boolean acumulavel, int limiteTotal,
             Integer limiteCliente, Map<String,Object> parametros, CondicaoConfig condicao) {
@@ -58,6 +60,6 @@ public class Cupom {
         if (nome == null || nome.isBlank() || nome.trim().length()>255 || tipo == null || tipo.isBlank()
                 || inicio == null || fim == null || !inicio.isBefore(fim)) { throw Parametros.invalido("campanha/cupom"); }
         this.nome=nome.trim(); this.tipo=tipo; this.inicio=inicio; this.fim=fim;
-        this.parametros=Map.copyOf(parametros == null ? Map.of() : parametros); this.condicao=condicao;
+        this.parametros=Parametros.copiaSemNulos(parametros); this.condicao=condicao;
     }
 }

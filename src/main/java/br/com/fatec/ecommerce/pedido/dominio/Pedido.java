@@ -183,6 +183,9 @@ public class Pedido {
             throw new DadoInvalidoException("Totais inconsistentes: o total de descontos difere da soma dos descontos.");
         }
         Dinheiro esperado = dados.subtotal().subtrair(dados.totalDescontos()).somar(dados.frete());
+        if (esperado.ehNegativo()) {
+            throw new DadoInvalidoException("Os descontos não podem superar o subtotal mais o frete (total negativo).");
+        }
         if (!dados.total().equals(esperado)) {
             throw new DadoInvalidoException(
                     "Totais inconsistentes: o total difere de subtotal menos descontos mais frete.");
@@ -228,6 +231,10 @@ public class Pedido {
      * estado de destino anuncia. Se o estado rejeitou a transicao, a excecao ja interrompeu o fluxo.
      */
     private void transicionar(EstadoPedido proximo, Responsavel responsavel, String motivo, Instant momento) {
+        if (responsavel == null) {
+            // validado antes de mutar situacao/historico/eventos: transicao rejeitada nao altera o agregado
+            throw new DadoInvalidoException("O responsável pela transição é obrigatório.");
+        }
         SituacaoPedido de = this.situacao;
         this.estado = proximo;
         this.situacao = proximo.situacao();

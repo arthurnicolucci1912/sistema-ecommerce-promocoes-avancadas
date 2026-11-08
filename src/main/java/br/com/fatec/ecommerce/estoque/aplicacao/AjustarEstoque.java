@@ -37,7 +37,14 @@ public class AjustarEstoque {
         if (delta == 0) {
             throw new DadoInvalidoException("A quantidade do ajuste não pode ser zero.");
         }
-        if (!saldos.ajustarDisponivel(variacaoId, delta)) {
+        boolean ajustado;
+        try {
+            ajustado = saldos.ajustarDisponivel(variacaoId, delta);
+        } catch (org.springframework.dao.DataIntegrityViolationException estouro) {
+            // disponivel + delta acima do int da coluna: erro de dominio, nao 500
+            throw new ConflitoException("O ajuste de " + delta + " estouraria o limite do estoque.");
+        }
+        if (!ajustado) {
             int disponivel = saldos.disponivelDe(variacaoId).orElseThrow(() -> new SaldoNaoEncontradoException(variacaoId));
             throw new ConflitoException("O ajuste de " + delta + " deixaria o estoque negativo (disponível "
                     + disponivel + ").");
