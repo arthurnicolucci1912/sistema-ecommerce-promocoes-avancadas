@@ -42,13 +42,22 @@ class UsuariosDeDemonstracaoForaDoDevTests {
         assertThat(total).isZero();
     }
 
+    /**
+     * Independente da ordem dos testes: outras classes gravam catalogo e estoque (inclusive SKUs como KIT-CAFE) no
+     * banco compartilhado do perfil "test", entao contar linhas ou procurar SKUs seria fragil. A prova de que os
+     * seeders de demonstracao nao rodam fora do dev e a ausencia dos beans que os executam e dos marcadores que
+     * so eles criam (campanhas "DEMO_*" e o cupom DEMO10).
+     */
     @Test
     void nenhumDadoDeCatalogoOuEstoqueDeDemonstracaoFoiSemeadoNaSubida() {
         assertThat(contexto.getBeansOfType(CatalogoDeDemonstracao.class)).isEmpty();
-        assertThat(jdbc.queryForObject("select count(*) from item_vendavel", Long.class)).isZero();
-        assertThat(jdbc.queryForObject("select count(*) from produto", Long.class)).isZero();
-        assertThat(jdbc.queryForObject("select count(*) from categoria", Long.class)).isZero();
-        assertThat(jdbc.queryForObject("select count(*) from saldo_estoque", Long.class)).isZero();
-        assertThat(jdbc.queryForObject("select count(*) from reserva_estoque", Long.class)).isZero();
+        assertThat(contexto.getBeansOfType(PromocoesDeDemonstracao.class)).isEmpty();
+    }
+
+    @Test
+    void nenhumaPromocaoOuCupomDeDemonstracaoFoiSemeadoNaSubida() {
+        assertThat(jdbc.queryForObject("select count(*) from promocao_config where nome like 'DEMO!_%' escape '!'",
+                Long.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from cupom where codigo = 'DEMO10'", Long.class)).isZero();
     }
 }
