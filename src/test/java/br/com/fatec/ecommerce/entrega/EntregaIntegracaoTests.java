@@ -82,6 +82,14 @@ class EntregaIntegracaoTests {
         assertThat(jdbc.queryForObject("SELECT versao FROM carrinho",Long.class)).isEqualTo(versao);
         for(String tabela:List.of("pedido","reserva_estoque","uso_cupom"))assertThat(contar(tabela)).isZero();
     }
+    @Test void checkoutEnviaQuantidadeEValorAoSimuladorEPreviaUsaOMesmoCusto()throws Exception{
+        jdbc.update("UPDATE saldo_estoque SET disponivel=100");incluir(30); // 30 itens de R$ 10: subtotal R$ 300
+        // economica: 25 + 25 itens excedentes x 1 + 1% de R$ 100 excedentes = 51; expressa: 40 + 25 x 2 + 2% de R$ 100 = 92
+        opcoes(endereco).andExpect(jsonPath("$.opcoes[0].custoBruto").value(51)).andExpect(jsonPath("$.opcoes[1].custoBruto").value(92));
+        assertThat(previa(ECO).at("/confirmacao/frete").decimalValue()).isEqualByComparingTo("51");
+        assertThat(previa(ECO).at("/confirmacao/total").decimalValue()).isEqualByComparingTo("351");
+        assertThat(previa(EXP).at("/confirmacao/total").decimalValue()).isEqualByComparingTo("392");
+    }
     @Test void novaTransportadoraESelecionadaSemMudarCheckout()throws Exception{
         incluir(2);novo.ativo=true;
         opcoes(endereco).andExpect(jsonPath("$.opcoes.length()").value(3));long id=comprar(NOVA);

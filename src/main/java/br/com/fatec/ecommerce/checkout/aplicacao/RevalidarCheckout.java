@@ -69,7 +69,8 @@ public class RevalidarCheckout {
         // Mesma leitura validada de SKUs/endereco/quantidades; sem persistencia ou consumo de recursos.
         var leitura = executar(clienteId, enderecoId, null).previa().confirmacao();
         return fretes.cotar(new br.com.fatec.ecommerce.entrega.dominio.ContextoFrete(leitura.endereco().uf(),
-                java.math.BigDecimal.ZERO, Dinheiro.de(leitura.subtotal())));
+                java.math.BigDecimal.ZERO, Dinheiro.de(leitura.subtotal()),
+                leitura.itens().stream().mapToInt(ConfirmacaoCheckout.Linha::quantidade).sum()));
     }
 
     CompraRevalidada executar(Long clienteId, Long enderecoId, String opcaoEntrega) {
@@ -94,11 +95,13 @@ public class RevalidarCheckout {
         var itensPedido = new ArrayList<DadosNovoPedido.Item>();
         Map<Long, Long> demanda = new TreeMap<>();
         Dinheiro subtotal = Dinheiro.zero();
+        int unidades = 0;
         try {
             for (var linha : carrinho.getItens()) {
                 var item = atuais.get(linha.getSku());
                 var valor = item.preco().multiplicar(linha.getQuantidade());
                 subtotal = subtotal.somar(valor);
+                unidades = Math.addExact(unidades, linha.getQuantidade());
                 linhas.add(new ConfirmacaoCheckout.Linha(item.sku(), item.nome(), item.descricaoVariacao(),
                         linha.getQuantidade(), item.preco().valor(), valor.valor()));
                 itensPreco.add(new ItemPreco(item.id(), item.sku(), item.categoriaIds(),
@@ -126,7 +129,7 @@ public class RevalidarCheckout {
                 .map(e -> new Insuficiencia(e.getKey(), e.getValue(), disponiveis.getOrDefault(e.getKey(), 0)))
                 .toList();
         var opcao = opcaoEntrega == null ? null : fretes.selecionar(
-                new br.com.fatec.ecommerce.entrega.dominio.ContextoFrete(endereco.getUf(), java.math.BigDecimal.ZERO, subtotal), opcaoEntrega);
+                new br.com.fatec.ecommerce.entrega.dominio.ContextoFrete(endereco.getUf(), java.math.BigDecimal.ZERO, subtotal, unidades), opcaoEntrega);
         Dinheiro freteBruto = opcao == null ? Dinheiro.zero() : Dinheiro.de(opcao.custoBruto());
         var dados = contexto == null ? new ContextoPreco(itensPreco, clienteId, false, endereco.getUf(), subtotal, Instant.now(), null, java.util.Set.of(), freteBruto)
                 : contexto.criar(itensPreco, clienteId, endereco.getUf(), subtotal, carrinho.getCupomCodigo(), freteBruto);

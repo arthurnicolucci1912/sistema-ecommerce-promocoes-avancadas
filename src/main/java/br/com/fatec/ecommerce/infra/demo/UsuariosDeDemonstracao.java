@@ -29,6 +29,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -46,6 +47,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Component
 @Profile("dev")
+@Order(1)
 public class UsuariosDeDemonstracao implements ApplicationRunner {
 
     static final String SENHA = "Demo1234";
@@ -166,7 +168,8 @@ public class UsuariosDeDemonstracao implements ApplicationRunner {
         Dinheiro subtotal = lista.stream().map(i -> i.precoUnitario().multiplicar(i.quantidade()))
                 .reduce(Dinheiro.zero(), Dinheiro::somar);
         var opcao = fretes.selecionar(new br.com.fatec.ecommerce.entrega.dominio.ContextoFrete(
-                endereco.getUf(), java.math.BigDecimal.ZERO, subtotal), "economica-simulada:ECONOMICA");
+                endereco.getUf(), java.math.BigDecimal.ZERO, subtotal,
+                lista.stream().mapToInt(DadosNovoPedido.Item::quantidade).sum()), "economica-simulada:ECONOMICA");
         Dinheiro frete = Dinheiro.de(opcao.custoBruto());
         EnderecoEntrega entrega = new EnderecoEntrega(endereco.getApelido(), endereco.getCep(),
                 endereco.getLogradouro(), endereco.getNumero(), endereco.getComplemento(), endereco.getBairro(),

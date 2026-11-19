@@ -2,6 +2,7 @@ package br.com.fatec.ecommerce.entrega.infra;
 
 import br.com.fatec.ecommerce.entrega.dominio.*;
 import br.com.fatec.ecommerce.compartilhado.dominio.Dinheiro;
+import java.util.Map;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
@@ -15,7 +16,8 @@ public class AdaptadorEntregaExpressa implements ProvedorFrete {
     @Override public String modalidade() { return "EXPRESSA"; }
     @Override public boolean atende(ContextoFrete c) { return tabela.atende(c.uf()); }
     @Override public CotacaoFrete cotar(ContextoFrete c) {
-        var r = api.estimar(RegiaoEntrega.da(c.uf()).name(), tabela);
+        var r = api.estimar(Map.of("regiao", RegiaoEntrega.da(c.uf()).name(), "pesoKg", c.pesoKg().toPlainString(),
+                "itens", Integer.toString(c.quantidadeItens()), "valor", c.subtotal().toString()), tabela);
         return new CotacaoFrete(modalidade(), Dinheiro.de(r.get("preco")), Integer.parseInt(r.get("prazo")));
     }
 }

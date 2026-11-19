@@ -15,7 +15,8 @@ public class AdaptadorEntregaEconomica implements ProvedorFrete {
     @Override public String modalidade() { return "ECONOMICA"; }
     @Override public boolean atende(ContextoFrete c) { return tabela.atende(c.uf()); }
     @Override public CotacaoFrete cotar(ContextoFrete c) {
-        var r = api.orcar(c.uf(), tabela);
+        var r = api.orcar(c.uf(), c.pesoKg(), c.quantidadeItens(),
+                c.subtotal().valor().movePointRight(2).longValueExact(), tabela);
         return new CotacaoFrete(modalidade(), Dinheiro.deCentavos(r.centavos()), r.diasUteis());
     }
 }
