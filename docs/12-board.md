@@ -77,7 +77,7 @@ A atribuição original (colunas acima e [11-divisao-equipe.md](11-divisao-equip
 | `eventos-notificacoes-auditoria` (auditoria) | Amanda | Arthur (sessão assistida; atribuição original: Amanda) | 2026-10-23 |
 | `relatorios-gerenciais` | Lucas | Arthur (sessão assistida; atribuição original: Lucas) | 2026-10-23 |
 
-A autoria dos commits é registrada pelo autor (ver [commits.md](../commits.md)).
+A autoria dos commits é registrada pelo autor (ver o histórico do Git).
 
 **Evidência final (2026-10-23):** `./mvnw -o clean verify` com BUILD SUCCESS, **649 testes, zero falhas/erros/ignorados** e JAR gerado; `openspec validate --specs --strict` aprovado nas 16 specs principais; todas as changes do roadmap (E1–E9) movidas para `openspec/changes/archive/`. O histórico de evidências por etapa está abaixo.
 

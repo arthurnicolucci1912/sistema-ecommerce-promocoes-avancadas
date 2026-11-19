@@ -34,7 +34,7 @@ Os pontos são esforço relativo, não horas.
 
 ### 2.1 Implementado por (situação real)
 
-A tabela acima não mudou: a atribuição original está preservada. Esta tabela registra quem implementou de fato cada change, para a defesa e o histórico (ver também [12-board.md](12-board.md) e `commits.md`).
+A tabela acima não mudou: a atribuição original está preservada. Esta tabela registra quem implementou de fato cada change, para a defesa e o histórico (ver também [12-board.md](12-board.md)).
 
 | Change | Atribuída a (original) | Implementada por | Observação |
 |---|---|---|---|
