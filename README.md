@@ -44,4 +44,7 @@ As migrações do banco ficam em [`src/main/resources/db/migration`](src/main/re
 
 ## Equipe
 
-Amanda Duara Ramos · Arthur · Lucas Gomes Ferreira · Mateus da Mata Rocha
+- Amanda Duara Ramos
+- Arthur Justo Nicolucci
+- Lucas Gomes Ferreira
+- Mateus da Mata Rocha
