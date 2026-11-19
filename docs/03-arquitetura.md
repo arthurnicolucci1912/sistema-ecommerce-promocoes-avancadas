@@ -213,7 +213,7 @@ Desvios em relação à proposta original, registrados na E1:
 |---|---|
 | `ContextoPreco` e `ItemPreco` ficam em `promocao.dominio` (não em `preco`). | Evita o ciclo `preco` ↔ `promocao`: `preco` depende de `promocao`, nunca o contrário. `CalculoPreco` (em `preco.dominio`) referencia o contexto de `promocao`. |
 | `ResultadoCobranca` é um `record` com o enum aninhado `Situacao` (`APROVADO`, `RECUSADO`, `PENDENTE`) e o `idTransacaoExterna`. | Torna explícito o resultado da cobrança, incluindo o caso pendente (PIX e boleto). |
-| `ContextoFrete` tem `uf`, `pesoKg` e `subtotal`. | Define o mínimo para "região, peso, valor" de `ProvedorFrete.atende`. |
+| `ContextoFrete` tem `uf`, `pesoKg`, `subtotal` e `quantidadeItens`. | Define o mínimo para "região, peso, quantidade, valor" de `ProvedorFrete.atende` e `cotar`. |
 | `PublicadorEventos` (porta em `compartilhado.dominio`) e `PublicadorEventosSpring` (adaptador em `compartilhado.infra`). | O domínio publica eventos sem depender do Spring; o adaptador delega ao `ApplicationEventPublisher`. É a única implementação de contrato existente na E1. |
 | `EstadoPedido` e o módulo `pedido` não foram criados na E1. | Criados na E4 (seção 5.9). A assinatura final difere da proposta original: as operações não recebem o `Pedido`; o estado não guarda dados e devolve o próximo estado. |
 
@@ -294,7 +294,7 @@ public interface ProvedorFrete {
 }
 ```
 
-`ContextoFrete(uf, pesoKg, subtotal)` e `CotacaoFrete(modalidade, custo, prazoDias)`, ambos `record`s em `entrega.dominio`.
+`ContextoFrete(uf, pesoKg, subtotal, quantidadeItens)` e `CotacaoFrete(modalidade, custo, prazoDias)`, ambos `record`s em `entrega.dominio`.
 
 O módulo `entrega` coleta as cotações de todos os provedores que atendem o contexto. Uma nova transportadora é um novo `ProvedorFrete`.
 
@@ -501,7 +501,7 @@ A ordem de bloqueio é pedido → cobrança/estorno → estoque ordenado → cup
 
 `ProvedorFrete` expõe `fornecedor()`, `modalidade()`, `atende(ContextoFrete)` e `cotar(ContextoFrete)`. `AdaptadorEntregaEconomica` traduz orçamento por UF em centavos; `AdaptadorEntregaExpressa` traduz documento por região em reais/prazo. Adaptees são `TransporteEconomicoFicticio` e `TransporteExpressoFicticio`. `TabelaFreteSimulado` valida tarifas/prazos/UFs no startup. `RegistroProvedoresFrete` enumera beans e valida códigos únicos fornecedor:modalidade; o checkout não conhece APIs concretas.
 
-`RevalidarCheckout.cotar` reutiliza a mesma leitura validada de endereço, seleção e catálogo da prévia. A cotação usa região/modalidade e subtotal atuais; peso zero é marcador de peso não calculado, ignorado por estes simuladores. Na prévia/conclusão, a escolha é recotada no servidor e `ContextoDeCompra` recebe frete bruto antes da cadeia promocional. `ConfirmacaoCheckout` acrescenta opção e frete líquido à comparação completa. Mudar prazo ou fornecedor exige reconfirmação mesmo se os preços coincidirem; perder cobertura gera 409 com opções atuais, sem fallback automático.
+`RevalidarCheckout.cotar` reutiliza a mesma leitura validada de endereço, seleção e catálogo da prévia. A cotação usa região, modalidade, subtotal e quantidade de itens atuais; o peso segue 0 enquanto o catálogo não o informa (abaixo da franquia, sem adicional). Os adaptadores só traduzem o contexto para a API de cada simulador (`TransporteEconomicoFicticio`, `TransporteExpressoFicticio`); a regra tarifária fica em `TabelaFreteSimulado.custo` (fórmula em 05-regras-negocio.md), sem lógica de frete no checkout. Na prévia/conclusão, a escolha é recotada no servidor e `ContextoDeCompra` recebe frete bruto antes da cadeia promocional. `ConfirmacaoCheckout` acrescenta opção e frete líquido à comparação completa. Mudar prazo ou fornecedor exige reconfirmação mesmo se os preços coincidirem; perder cobertura gera 409 com opções atuais, sem fallback automático.
 
 Consulta de opções (`POST /api/clientes/me/checkout/fretes`) exige CLIENTE/endereço próprio e não persiste. Sem cobertura retorna 200 com lista vazia; falha parcial omite serviços afetados, mantendo os válidos; falha sem resultado válido retorna 503 (`ServicoIndisponivelException` do compartilhado). Falha de provedor não equivale a frete gratuito. Snapshot de entrega usa valores simples no domínio pedido, sem associação ao módulo de transportadoras. A transação existente de compra, estoque, cupom e limpeza continua íntegra.
 

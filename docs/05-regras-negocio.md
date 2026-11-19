@@ -38,7 +38,14 @@ Dado o conjunto de promoções elegíveis:
 2. Caso contrário, aplicam-se todas as **acumuláveis**, em ordem de prioridade, mais a **melhor** (maior desconto) entre as **não acumuláveis**.
 3. Em empate, vence a maior prioridade; persistindo o empate, vence a promoção mais antiga (menor data de criação).
 
-A política em si é uma Strategy trocável (`PoliticaConflito`).
+A política em si é uma Strategy trocável (`PoliticaConflito`), escolhida por configuração na propriedade `ecommerce.promocoes.politica-conflito`:
+
+| Valor | Política | Efeito |
+|---|---|---|
+| `padrao` (default, também sem a propriedade) | `PoliticaPadrao` | Regra D4 descrita acima. |
+| `maior-desconto` | `PoliticaSomenteMaiorDesconto` | Aplica **somente** a promoção elegível de maior desconto, independentemente do modo de acumulação. No cenário A abaixo (P1 = 50, P2 = 20, P3 = 40), só P1 seria aplicada: desconto de **R$ 50,00** em vez de R$ 110,00. |
+
+A propriedade vale para o motor de promoções (itens e frete); muda a política sem alterar `MotorDePromocoes` nem as promoções (ver [04-design-patterns.md](04-design-patterns.md), seção 3.1).
 
 ```mermaid
 flowchart TD
@@ -353,7 +360,7 @@ Cancelamento pago ou em preparação solicita estorno integral uma única vez ao
 
 Escolha de entrega é obrigatória na prévia e conclusão HTTP. Cotação bruta e prazo são fornecidos pelo servidor para endereço próprio; opção inválida/perda de cobertura retorna 409 com opções atuais, sem substituir automaticamente. Mudança de custo bruto, prazo, fornecedor ou modalidade exige reconfirmação, mesmo quando frete grátis mantém o total final. Sem cobertura, consulta retorna lista vazia; falha dos serviços necessários é 503, nunca custo zero fictício.
 
-A tabela de demonstração econômica é Sudeste R$ 25/5 dias, Sul R$ 30/6, Centro-Oeste R$ 35/7, Nordeste R$ 40/9 e Norte R$ 45/12. Expressa: R$ 40/2, 48/3, 56/3, 64/4 e 72/6, respectivamente. Dias são úteis estimados após aprovação, sem promessa de data com feriados nem transição automática. Custos variam por região/modalidade; os fornecedores não usam peso. Tarifas, prazos e cobertura são configuração do servidor.
+A tabela de demonstração econômica é Sudeste R$ 25/5 dias, Sul R$ 30/6, Centro-Oeste R$ 35/7, Nordeste R$ 40/9 e Norte R$ 45/12. Expressa: R$ 40/2, 48/3, 56/3, 64/4 e 72/6, respectivamente. Dias são úteis estimados após aprovação, sem promessa de data com feriados nem transição automática. O custo varia por região, peso, quantidade de itens, valor da compra e modalidade. Fórmula do custo bruto (regra do simulador, não do checkout): `custo = base da região + máx(0, pesoKg − 1) × adicionalKg + máx(0, itens − 5) × adicionalItem + máx(0, valor − 200) × seguro%`, arredondado uma única vez em 2 casas (HALF_EVEN). Econômica: R$ 2,00 por kg excedente, R$ 1,00 por item excedente, seguro de 1%. Expressa: R$ 4,00, R$ 2,00 e 2%. A franquia de valor (R$ 200,00) faz o seguro ad valorem incidir só sobre o excedente. O peso ainda não existe no catálogo, então o checkout envia 0 kg (abaixo da franquia, sem adicional) e nenhum peso é inventado; região, quantidade de itens (soma das unidades) e valor da compra já alteram o custo. Franquias, adicionais e percentuais são configuração do servidor: `ecommerce.entrega.<economica|expressa>.franquia-kg`, `adicional-kg`, `franquia-itens`, `adicional-item`, `franquia-valor`, `seguro-percentual`. Exemplo: compra de R$ 700,00 com 8 itens em BA (base R$ 40 econômica / R$ 64 expressa), sem peso: econômica 40 + 3×1 + 5 = R$ 48,00; expressa 64 + 3×2 + 10 = R$ 80,00. Prazos e cobertura também são configuração do servidor.
 
 O motor recebe cotação antes dos benefícios. Resposta discrimina `frete` bruto, descontos com alvo FRETE e `freteLiquido`, limitado a zero; `total=subtotal−todosDescontos+freteBruto`. Promoção exclusiva de itens impede campanha de frete grátis como determina a política existente. Cupom de frete só consome utilização quando acrescenta benefício positivo; se uma campanha já zera o frete, benefício zero não consome. Ao cancelar/recusar, devolução permanece idempotente.
 

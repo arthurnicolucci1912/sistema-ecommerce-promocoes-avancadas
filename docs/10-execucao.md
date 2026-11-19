@@ -15,6 +15,8 @@
 
 Os comandos abaixo partem da raiz do repositório.
 
+> **Roteiros por `curl`.** Os roteiros das seções 8 em diante usam `curl`, `jq`, `date -u -d` (GNU date) e arquivos temporários em `/tmp`. No Linux/macOS (no macOS, o `date -d` GNU exige `gdate` do coreutils) basta ter `curl` e `jq`. No Windows, rode-os no **Git Bash** e instale o `jq` (por exemplo, `winget install jqlang.jq`); o `/tmp` do Git Bash existe e funciona, e fora dele troque `/tmp` por qualquer pasta gravável (ex.: `$TMPDIR` ou `.`). Se preferir não instalar nada, quase todos os roteiros podem ser feitos pelo **Swagger UI** (seção 5): faça **Authorize** com o `accessToken` e execute os mesmos verbos e corpos.
+
 ## 2. Banco de dados (PostgreSQL via Docker Compose)
 
 ```bash
@@ -23,12 +25,16 @@ docker compose up -d
 
 Sobe o PostgreSQL 17 (contêiner `ecommerce-postgres`) com banco, usuário e senha `ecommerce` (credenciais fictícias, só para desenvolvimento) e volume persistente `ecommerce-pgdata`.
 
-> **Porta 5432 ocupada?** Se já houver um PostgreSQL local usando a porta 5432, suba o contêiner em outra porta e informe a URL à aplicação:
+> **Porta 5432 ocupada?** Se já houver um PostgreSQL local usando a porta 5432, suba o contêiner em uma porta livre qualquer (aqui, 5435) e informe a mesma porta à aplicação:
 >
 > ```bash
-> DB_PORT=5433 docker compose up -d
-> export DB_URL=jdbc:postgresql://localhost:5433/ecommerce
+> export DB_PORT=5435
+> docker compose up -d
+> export DB_URL=jdbc:postgresql://localhost:$DB_PORT/ecommerce
+> ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 > ```
+>
+> `DB_PORT` é lida pelo `docker-compose.yml` (mapeia `$DB_PORT` para a 5432 do contêiner) e `DB_URL` pela aplicação; use o mesmo número nas duas.
 
 Para parar: `docker compose down` (mantém os dados). Para apagar também os dados e recriar o banco do zero: `docker compose down -v`.
 
@@ -71,6 +77,8 @@ No perfil `dev`, `DB_URL`, `DB_USER` e `DB_PASSWORD` são opcionais (usados, por
 | Saúde da aplicação | <http://localhost:8080/actuator/health> (apenas `status`, sem detalhes) |
 
 Essas três URLs são públicas (não exigem token).
+
+> **CPF de exemplo do Swagger.** O CPF `529.982.247-25`, que aparece como exemplo no `POST /api/clientes`, já pertence a `cliente@demo.local` no perfil `dev`: cadastrá-lo de novo responde 409. Para criar um cliente novo, use outro CPF válido, como `111.444.777-35`, e outro e-mail.
 
 ### Obter um token e usar no Swagger
 
@@ -166,7 +174,7 @@ Depois da carga e do pedido de demonstração (2 x `CAM-BAS-M` e 1 x `CAN-CER-30
 
 | Sintoma | Causa provável e solução |
 |---|---|
-| `docker compose up` falha com "port is already allocated" | A porta 5432 está ocupada: use `DB_PORT=5433 docker compose up -d` e `DB_URL=jdbc:postgresql://localhost:5433/ecommerce` (seção 2). |
+| `docker compose up` falha com "port is already allocated" | A porta 5432 está ocupada: use uma porta livre qualquer, por exemplo `DB_PORT=5435 docker compose up -d` e `DB_URL=jdbc:postgresql://localhost:5435/ecommerce` (seção 2). |
 | A aplicação falha na subida com erro de conexão | O contêiner não está de pé (`docker compose ps`) ou `DB_URL` aponta para a porta errada. |
 | A aplicação falha na subida reclamando do segredo JWT | Fora do `dev`, defina `APP_JWT_SECRET` com 32 caracteres ou mais; ou rode com o perfil `dev`. |
 | Testes de integração falham ao iniciar o contêiner | O Docker não está em execução ou o usuário não tem permissão para usá-lo. |
@@ -254,6 +262,24 @@ O cancelamento preserva o carrinho vazio e devolve as unidades ao disponível um
 Erros: 400 para corpo/confirmacao ausentes ou dados inválidos (inclusive números fracionários em ids/quantidades); 401 sem token; 403 sem CLIENTE; 404 para endereço inativo, inexistente ou alheio; 409 para carrinho vazio, SKU indisponível, confirmação antiga, estoque insuficiente ou disputa da versão. Estoque insuficiente informa `variacaoId` e `disponivel`; nada da tentativa permanece reservado e a seleção é preservada. Duas conclusões da mesma seleção não geram dois pedidos.
 
 Evidência automatizada dos verbos, payloads e respostas: `CheckoutIntegracaoTests`, incluindo o fluxo variação/kit → mudança de preço → reconfirmação → reserva → cancelamento, OpenAPI, rollback após flush e concorrência real em PostgreSQL. Execute `./mvnw -o -Dtest=RevalidarCheckoutTests,ConfirmacaoCheckoutTests,CheckoutIntegracaoTests test`; para toda a regressão e JAR, `./mvnw -o verify`.
+
+### Campanhas e cupons de demonstração (perfil `dev`)
+
+Criados na subida, uma única vez (idempotente por nome/código), depois do catálogo de demonstração (seção 6.2), pela `PromocoesDeDemonstracao`. Cada campanha passa pelo mesmo `PromocaoFactoryRegistry` (Factory Method) e pela mesma validação de SKU/categoria da API administrativa. Todas as campanhas abaixo nascem **ativas**, com vigência de 100 anos; o administrativo as lista em `GET /api/admin/promocoes` (ADMIN ou PROMOCOES, ex.: `promocoes@demo.local`).
+
+| Nome | Tipo | Regra (SKU/categoria) | Modo | Prioridade |
+|---|---|---|---|---|
+| `DEMO_LEVE3_PAGUE2_CAMISETA` | `LEVE_X_PAGUE_Y` | leve 3 e pague 2 na Camiseta Básica M (`CAM-BAS-M`) | acumulável | 30 |
+| `DEMO_CAMISETAS_15` | `PERCENTUAL_CATEGORIA` | 15% nos itens da categoria Camisetas (`CAM-BAS-P`, `-M`, `-G`) | não acumulável | 20 |
+| `DEMO_ACIMA_DE_200_MENOS_30` | `VALOR_FIXO_ACIMA_DE` | R$ 30,00 em compras a partir de R$ 200,00 | não acumulável | 10 |
+| `DEMO_FRETE_GRATIS_ACIMA_DE_200` | `FRETE_GRATIS` | frete bruto zerado em compras a partir de R$ 200,00 (condição `VALOR_MINIMO`) | acumulável | 5 |
+| `DEMO_PRIMEIRA_COMPRA` | `PERCENTUAL_PRIMEIRA_COMPRA` | 10% para quem nunca teve pagamento aprovado; **inicia inativa** (ver roteiro E5 abaixo) | acumulável | 10 |
+
+Cupom: `DEMO10` (10% após as promoções, limite global 100 e individual 1), aplicado pelo cliente em `PUT /api/clientes/me/carrinho/cupom` conforme o roteiro E5.
+
+**Carrinho de exemplo que dispara múltiplas promoções e conflito.** Como `cliente@demo.local`, limpe o carrinho e adicione 3 x `CAM-BAS-M` e 1 x `CAN-CER-300` (subtotal R$ 214,60). Candidatas elegíveis: leve 3 pague 2 (R$ 59,90, acumulável), 15% em Camisetas (R$ 26,96, não acumulável), R$ 30,00 acima de R$ 200 (não acumulável) e frete grátis (acumulável, efetivo na prévia do checkout, que é onde o frete é cotado). Pela política padrão (RN-02): as duas acumuláveis são aplicadas; entre as não acumuláveis vence a de R$ 30,00 e `DEMO_CAMISETAS_15` é **descartada por conflito**. Desconto de itens: R$ 89,90 (itens: R$ 124,70 antes do cupom). Na prévia do checkout (endereço em SP), o frete bruto vem da fórmula da seção "Entrega e cotação de frete (E7)": base do Sudeste R$ 25,00 + seguro de 1% sobre o que passa de R$ 200,00 (1% x R$ 14,60 = R$ 0,146, arredondado uma vez) = **R$ 25,15** na econômica (**R$ 40,29** na expressa: R$ 40,00 + 2% x R$ 14,60 = R$ 0,292). Com 4 itens e sem peso não há adicional de item nem de peso. O frete grátis gera então um desconto de frete de R$ 25,15 (R$ 40,29 se a expressa for escolhida) e o frete líquido fica em **R$ 0,00**; total da prévia R$ 124,70. O frete de R$ 25,00 do pedido de demonstração (seção 6.1) vale para o subtotal dele, R$ 154,70, abaixo da franquia de R$ 200,00. Com `ecommerce.promocoes.politica-conflito=maior-desconto` (reinicie com `ECOMMERCE_PROMOCOES_POLITICA_CONFLITO=maior-desconto`), só a de maior desconto (leve 3 pague 2, R$ 59,90) é aplicada. Evidência automatizada: `PromocoesDemonstracaoTests` e `PoliticaConflitoSelecionavelTests`.
+
+Efeito sobre os outros roteiros: os carrinhos deles ficam abaixo de R$ 200 e fora de Camisetas, então as campanhas acima não os alteram; no roteiro "Compra notificada e consulta da trilha" (E8), use como `DEMO_SKU` um SKU fora de Camisetas (ex.: `CAN-CER-300`). Para repetir a carga com valores originais, recrie o banco (`docker compose down -v`).
 
 ## Promoções e cupons (E5)
 
@@ -355,7 +381,7 @@ Tabela simulada padrão:
 | Nordeste | 40 / 9 | 64 / 4 |
 | Norte | 45 / 12 | 72 / 6 |
 
-Configuração opcional do servidor: `ecommerce.entrega.economica.sudeste.valor=25`, `.prazo-dias=5`, `ecommerce.entrega.economica.ufs=SP,RJ,...`; para expressa troque o prefixo por `ecommerce.entrega.expressa`. Regiões: sudeste, sul, centro_oeste, nordeste, norte. Sem configuração, ambas cobrem as 27 UFs; string de cobertura vazia desabilita atendimento. Custo negativo, prazo não positivo ou UF inválida impedem startup. Não são tarifas comerciais reais e não se inventa peso de produto. Novo provedor/modalidade entra por bean do contrato ProvedorFrete, com código único, sem mudança do checkout.
+Configuração opcional do servidor: `ecommerce.entrega.economica.sudeste.valor=25`, `.prazo-dias=5`, `ecommerce.entrega.economica.ufs=SP,RJ,...`; para expressa troque o prefixo por `ecommerce.entrega.expressa`. Regiões: sudeste, sul, centro_oeste, nordeste, norte. Sem configuração, ambas cobrem as 27 UFs; string de cobertura vazia desabilita atendimento. Custo negativo, prazo não positivo ou UF inválida impedem startup. Coeficientes opcionais por modalidade: `franquia-kg` (1), `adicional-kg` (2 econômica / 4 expressa), `franquia-itens` (5), `adicional-item` (1 / 2), `franquia-valor` (200) e `seguro-percentual` (1 / 2); valores negativos impedem startup. Fórmula em 05-regras-negocio.md. Não são tarifas comerciais reais e não se inventa peso de produto (o checkout envia 0 kg). Novo provedor/modalidade entra por bean do contrato ProvedorFrete, com código único, sem mudança do checkout.
 
 A demonstração dev cria pedido novo com econômica e seus custos correntes (padrão SP: subtotal R$ 154,70, frete R$ 25,00 e total R$ 179,70); reiniciar não altera pedidos já existentes nem suas opções. Se faltar estoque ou serviço de entrega, o pedido de exemplo é omitido com diagnóstico e a API continua disponível. Nenhuma carga existe fora de dev.
 

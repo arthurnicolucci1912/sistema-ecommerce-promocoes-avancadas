@@ -93,6 +93,8 @@ classDiagram
 
 **O que ficou mais fácil de modificar.** Nova promoção = uma nova classe `Promocao` mais seu registro (ver 3.7). Nenhuma classe existente muda. Trocar a regra de conflito = nova `PoliticaConflito`.
 
+**Escolha da política de conflito por configuração.** `MotorDePromocoes` (contexto) recebe a `PoliticaConflito` no construtor; quem decide qual implementação vira bean é `ConfiguracaoPromocoes`, pela propriedade `ecommerce.promocoes.politica-conflito` (também como variável de ambiente `ECOMMERCE_PROMOCOES_POLITICA_CONFLITO`): `padrao` (default, vale também sem a propriedade) registra `PoliticaPadrao`; `maior-desconto` registra `PoliticaSomenteMaiorDesconto`, que aplica somente a promoção elegível de maior desconto, ignorando modos e acumulação. São dois `@Bean` com `@ConditionalOnProperty`; um valor desconhecido impede a subida em vez de cair em silêncio no padrão. Documentada, comentada, em `application.yml`. Testes: `PoliticaConflitoSelecionavelTests` (contexto leve, qual bean é registrado) e `PromocoesDominioTests` (com `maior-desconto` só o maior desconto é aplicado, enquanto a padrão soma acumuláveis e a melhor não acumulável).
+
 **Contratos já criados na E1.** Todos em `dominio`, sem nenhuma implementação (o `Promocao` só ganha estratégias concretas na E5):
 
 | Contrato (pacote) | Papel | Tipos de apoio |
@@ -123,7 +125,7 @@ classDiagram
 | Papel | Classe |
 |---|---|
 | Component | `CondicaoElegibilidade` (método `avaliar(ContextoPreco)`) |
-| Leaf | `PrimeiraCompra`, `ValorMinimo`, `CategoriaDoProduto`, `ProdutoEspecifico`, `RegiaoDeEntrega`, `PeriodoDeVigencia`, `PerfilDoCliente` |
+| Leaf | `PrimeiraCompra`, `ValorMinimo`, `CategoriaDoProduto`, `ItemPorSku`, `RegiaoDeEntrega`, `PeriodoDeVigencia`, `PerfilDoCliente` |
 | Composite | `CondicaoE` (todas), `CondicaoOu` (alguma), `CondicaoNao` (inverte) |
 | Cliente | `Promocao`, `Cupom` e a regra de frete grátis, que guardam uma `CondicaoElegibilidade` raiz |
 

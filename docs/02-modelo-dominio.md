@@ -524,7 +524,7 @@ O cupom selecionado é parte versionada do carrinho. `uso_cupom` identifica uma 
 
 ## Entrega selecionada (E7)
 
-`OpcaoEntrega` identifica fornecedor/modalidade e uma cotação bruta com prazo estimado em dias úteis após aprovação. Provedores simulados calculam por região e modalidade; o catálogo não fornece peso físico e nenhum peso é inventado para cobrar frete.
+`OpcaoEntrega` identifica fornecedor/modalidade e uma cotação bruta com prazo estimado em dias úteis após aprovação. Provedores simulados calculam por região, quantidade de itens, valor da compra, peso e modalidade (fórmula em 05-regras-negocio.md); o catálogo não fornece peso físico, então o peso enviado é 0 e nenhum peso é inventado para cobrar frete.
 
 O pedido incorpora `DadosEntregaSelecionada`: código, fornecedor, modalidade e prazo positivo, em quatro colunas `opcao_entrega_*` da V7, opcionais em conjunto para preservar legados. O snapshot não referencia configuração ou transportadora. Cotação posterior não muda endereço, prazo, frete nem total de pedido comprado. `frete` continua bruto; `freteLiquido` é derivado de frete menos descontos FRETE, sem coluna redundante. Novas compras HTTP exigem seleção; pedidos legados expõem opcaoEntrega=null.
 
