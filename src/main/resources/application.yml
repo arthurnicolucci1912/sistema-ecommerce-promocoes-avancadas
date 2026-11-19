@@ -23,6 +23,14 @@ app:
     segredo: ${APP_JWT_SECRET:}
     expiracao: 60m
 
+# Politica de conflito entre promocoes (Strategy PoliticaConflito, usada pelo MotorDePromocoes):
+#   padrao         (default) regra D4: exclusiva de maior desconto, ou acumulaveis + melhor nao acumulavel.
+#   maior-desconto aplica somente a promocao elegivel de maior desconto (PoliticaSomenteMaiorDesconto).
+# Sem a propriedade vale "padrao". Valor desconhecido impede a subida (nenhuma politica registrada).
+# ecommerce:
+#   promocoes:
+#     politica-conflito: padrao
+
 management:
   endpoints:
     web:

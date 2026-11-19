@@ -105,6 +105,17 @@ class PromocoesDominioTests {
         assertThat(new MotorDePromocoes(politica).calcular(contexto("60"),List.of(fixo2,fixo1))).extracting(dsc->dsc.valor().toString()).containsExactly("50.00","10.00");
         assertThat(new MotorDePromocoes(new PoliticaSomenteMaiorDesconto()).calcular(contexto("60"),List.of(fixo1,fixo2))).hasSize(1);
     }
+    @Test void politicaSomenteMaiorDescontoAplicaApenasOMaiorDescontoEnquantoAPadraoSomaAcumulaveis() {
+        var fixo50=campanha(1,"VALOR_FIXO_ACIMA_DE",Map.of("minimo",0,"valor",50),10,ModoAcumulacao.ACUMULAVEL);
+        var fixo20=campanha(2,"VALOR_FIXO_ACIMA_DE",Map.of("minimo",0,"valor",20),20,ModoAcumulacao.ACUMULAVEL);
+        var fixo30=campanha(3,"VALOR_FIXO_ACIMA_DE",Map.of("minimo",0,"valor",30),30,ModoAcumulacao.NAO_ACUMULAVEL);
+        var promocoes=List.of(fixo50,fixo20,fixo30);
+        var maior=new MotorDePromocoes(new PoliticaSomenteMaiorDesconto()).calcular(contexto("100"),promocoes);
+        assertThat(maior).extracting(DescontoAplicado::referenciaId).containsExactly(1L);
+        assertThat(maior).extracting(dsc->dsc.valor().toString()).containsExactly("50.00");
+        var padrao=new MotorDePromocoes(new PoliticaPadrao()).calcular(contexto("100"),promocoes);
+        assertThat(padrao).extracting(DescontoAplicado::referenciaId).containsExactlyInAnyOrder(1L,2L,3L);
+    }
     Cupom cupom(String tipo,Map<String,Object> parametros) {
         var c=new Cupom("BEMVINDO10","Bem vindo",tipo,AGORA.minusSeconds(60),AGORA.plusSeconds(60),true,10,1,parametros,null,AGORA);
         ReflectionTestUtils.setField(c,"id",9L); ReflectionTestUtils.setField(c,"versao",0L); return c;

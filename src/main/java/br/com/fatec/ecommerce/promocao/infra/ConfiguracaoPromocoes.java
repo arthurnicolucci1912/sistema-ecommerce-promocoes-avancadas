@@ -5,6 +5,7 @@ import java.time.Clock;
 import java.util.*;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.*;
 
 /** Composicao dos participantes Strategy/Factory/Composite; dominio permanece sem Spring. */
@@ -23,7 +24,13 @@ public class ConfiguracaoPromocoes {
     @Bean BeneficioCupomRegistry beneficios(ObjectProvider<BeneficioCupomFactory> extras) {
         var lista=new ArrayList<>(BeneficioCupomRegistry.padrao()); extras.orderedStream().forEach(lista::add); return new BeneficioCupomRegistry(lista);
     }
-    @Bean @ConditionalOnMissingBean(PoliticaConflito.class) PoliticaConflito politicaPromocional() { return new PoliticaPadrao(); }
+    /** Strategy de conflito escolhida por {@code ecommerce.promocoes.politica-conflito}: {@code padrao} (default) ou {@code maior-desconto}. */
+    @Bean @ConditionalOnMissingBean(PoliticaConflito.class)
+    @ConditionalOnProperty(name="ecommerce.promocoes.politica-conflito",havingValue="padrao",matchIfMissing=true)
+    PoliticaConflito politicaPromocional() { return new PoliticaPadrao(); }
+    @Bean @ConditionalOnMissingBean(PoliticaConflito.class)
+    @ConditionalOnProperty(name="ecommerce.promocoes.politica-conflito",havingValue="maior-desconto")
+    PoliticaConflito politicaSomenteMaiorDesconto() { return new PoliticaSomenteMaiorDesconto(); }
     @Bean MotorDePromocoes motor(PoliticaConflito politica) { return new MotorDePromocoes(politica); }
     @Bean AvaliadorCupom avaliador(FonteDeCupons fonte,CondicaoRegistry condicoes,BeneficioCupomRegistry beneficios) {
         return new AvaliadorCupom(fonte,condicoes,beneficios);
